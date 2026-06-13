@@ -75,10 +75,10 @@ DECLARE
   p_fast_5 uuid := '40000000-0000-0000-0006-000000000005';
 
   -- ── Tags ───────────────────────────────────────────────────
-  tag_commercial uuid := '50000000-0000-0000-0000-000000000001';
-  tag_industrial uuid := '50000000-0000-0000-0000-000000000002';
+  tag_commercial  uuid := '50000000-0000-0000-0000-000000000001';
+  tag_industrial  uuid := '50000000-0000-0000-0000-000000000002';
   tag_residential uuid := '50000000-0000-0000-0000-000000000003';
-  tag_certified  uuid := '50000000-0000-0000-0000-000000000004';
+  tag_certified   uuid := '50000000-0000-0000-0000-000000000004';
 
 BEGIN
 
@@ -119,9 +119,9 @@ INSERT INTO organizations (id, name, slug, type) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================
--- PROFILES
+-- PROFILES  (org_id = renamed from organization_id)
 -- =============================================================
-INSERT INTO profiles (id, organization_id, full_name, role) VALUES
+INSERT INTO profiles (id, org_id, full_name, role) VALUES
   (user_alice, org_acme,   'Alice Chen',      'admin'),
   (user_bob,   org_bolt,   'Bob Ramirez',     'admin'),
   (user_carol, org_supply, 'Carol Okafor',    'admin'),
@@ -129,9 +129,9 @@ INSERT INTO profiles (id, organization_id, full_name, role) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================
--- MANUFACTURER PROFILES
+-- MANUFACTURER PROFILES  (org_id = renamed from organization_id)
 -- =============================================================
-INSERT INTO manufacturer_profiles (organization_id, tagline, about, contact_email) VALUES
+INSERT INTO manufacturer_profiles (org_id, tagline, about, contact_email) VALUES
   (org_acme,
    'Precision controls for every climate.',
    'Acme Manufacturing has delivered HVAC, electrical, and safety products since 1978. '
@@ -142,12 +142,12 @@ INSERT INTO manufacturer_profiles (organization_id, tagline, about, contact_emai
    'Bolt Industries designs and manufactures professional-grade power tools, hand tools, '
    'and fastening systems trusted by tradespeople on six continents.',
    'info@bolt-industries.com')
-ON CONFLICT (organization_id) DO NOTHING;
+ON CONFLICT (org_id) DO NOTHING;
 
 -- =============================================================
--- PRODUCT LINES
+-- PRODUCT LINES  (manufacturer_org_id = renamed from organization_id)
 -- =============================================================
-INSERT INTO product_lines (id, organization_id, name, description) VALUES
+INSERT INTO product_lines (id, manufacturer_org_id, name, description) VALUES
   -- Acme
   (pl_hvac,   org_acme, 'HVAC Controls',
    'Thermostats, damper actuators, and building automation controllers for commercial HVAC systems.'),
@@ -165,11 +165,12 @@ INSERT INTO product_lines (id, organization_id, name, description) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================
--- PRODUCTS  (30 rows; tsvector populated automatically by trigger)
+-- PRODUCTS  (manufacturer_org_id = renamed from organization_id)
+-- tsvector populated automatically by trigger
 -- =============================================================
 
 -- ── Acme / HVAC Controls ─────────────────────────────────────
-INSERT INTO products (id, product_line_id, organization_id, model_number, name, description, category, specs) VALUES
+INSERT INTO products (id, product_line_id, manufacturer_org_id, model_number, name, description, category, specs) VALUES
   (p_hvac_1, pl_hvac, org_acme, 'AC-T100', 'Commercial Thermostat T100',
    'Programmable 7-day thermostat for single-stage heating and cooling systems.',
    'Thermostats',
@@ -193,7 +194,7 @@ INSERT INTO products (id, product_line_id, organization_id, model_number, name, 
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Acme / Electrical Components ─────────────────────────────
-INSERT INTO products (id, product_line_id, organization_id, model_number, name, description, category, specs) VALUES
+INSERT INTO products (id, product_line_id, manufacturer_org_id, model_number, name, description, category, specs) VALUES
   (p_elec_1, pl_elec, org_acme, 'AC-CB20', '20A Single-Pole Breaker',
    'Thermal-magnetic circuit breaker, 20A 120/240VAC, plug-on neutral compatible.',
    'Breakers',
@@ -217,7 +218,7 @@ INSERT INTO products (id, product_line_id, organization_id, model_number, name, 
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Acme / Safety Equipment ──────────────────────────────────
-INSERT INTO products (id, product_line_id, organization_id, model_number, name, description, category, specs) VALUES
+INSERT INTO products (id, product_line_id, manufacturer_org_id, model_number, name, description, category, specs) VALUES
   (p_safe_1, pl_safety, org_acme, 'AC-EL90', '90-Min Emergency Light',
    'Self-testing dual-head LED emergency light, 90-minute backup, wet-location listed.',
    'Emergency Lighting',
@@ -241,7 +242,7 @@ INSERT INTO products (id, product_line_id, organization_id, model_number, name, 
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Bolt / Power Tools ────────────────────────────────────────
-INSERT INTO products (id, product_line_id, organization_id, model_number, name, description, category, specs) VALUES
+INSERT INTO products (id, product_line_id, manufacturer_org_id, model_number, name, description, category, specs) VALUES
   (p_pow_1, pl_power, org_bolt, 'BT-DRL20', '20V Cordless Drill/Driver',
    'Brushless 20V MAX cordless drill with 2-speed gearbox, LED light, and belt clip.',
    'Drills',
@@ -265,7 +266,7 @@ INSERT INTO products (id, product_line_id, organization_id, model_number, name, 
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Bolt / Hand Tools ─────────────────────────────────────────
-INSERT INTO products (id, product_line_id, organization_id, model_number, name, description, category, specs) VALUES
+INSERT INTO products (id, product_line_id, manufacturer_org_id, model_number, name, description, category, specs) VALUES
   (p_hand_1, pl_hand, org_bolt, 'BT-WR12', '12" Adjustable Wrench',
    'Drop-forged chrome-vanadium adjustable wrench with laser-etched scale.',
    'Wrenches',
@@ -289,7 +290,7 @@ INSERT INTO products (id, product_line_id, organization_id, model_number, name, 
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Bolt / Fasteners ──────────────────────────────────────────
-INSERT INTO products (id, product_line_id, organization_id, model_number, name, description, category, specs) VALUES
+INSERT INTO products (id, product_line_id, manufacturer_org_id, model_number, name, description, category, specs) VALUES
   (p_fast_1, pl_fast, org_bolt, 'BT-SCR-3X', '#10 x 3" Structural Screws (100 pk)',
    'Star-drive coarse-thread structural screws, case-hardened, ACQ-rated coating, 100-pack.',
    'Screws',
@@ -323,7 +324,7 @@ INSERT INTO tags (id, name) VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================
--- PRODUCT TAGS  (sample tagging on a handful of products)
+-- PRODUCT TAGS
 -- =============================================================
 INSERT INTO product_tags (product_id, tag_id) VALUES
   (p_hvac_1, tag_commercial),
@@ -344,63 +345,64 @@ INSERT INTO product_tags (product_id, tag_id) VALUES
 ON CONFLICT DO NOTHING;
 
 -- =============================================================
--- FILES  (rows only — storage objects not actually uploaded)
+-- FILES  (rows only; owner_org_id + product_line_id added)
+-- storage objects not actually uploaded
 -- =============================================================
-INSERT INTO files (id, product_id, organization_id, filename, storage_path, file_type, file_size) VALUES
+INSERT INTO files (id, product_id, owner_org_id, product_line_id, filename, storage_path, file_type, file_size) VALUES
   ('60000000-0000-0000-0000-000000000001',
-   p_hvac_2, org_acme,
+   p_hvac_2, org_acme, pl_hvac,
    'AC-T200_Installation_Guide.pdf',
    'acme-manufacturing/hvac-controls/AC-T200_Installation_Guide.pdf',
    'application/pdf', 2457600),
 
   ('60000000-0000-0000-0000-000000000002',
-   p_hvac_2, org_acme,
+   p_hvac_2, org_acme, pl_hvac,
    'AC-T200_BACnet_Integration.pdf',
    'acme-manufacturing/hvac-controls/AC-T200_BACnet_Integration.pdf',
    'application/pdf', 1048576),
 
   ('60000000-0000-0000-0000-000000000003',
-   p_hvac_4, org_acme,
+   p_hvac_4, org_acme, pl_hvac,
    'AC-BA7_Programming_Reference.pdf',
    'acme-manufacturing/hvac-controls/AC-BA7_Programming_Reference.pdf',
    'application/pdf', 5242880),
 
   ('60000000-0000-0000-0000-000000000004',
-   p_elec_3, org_acme,
+   p_elec_3, org_acme, pl_elec,
    'AC-PB42_Wiring_Diagram.pdf',
    'acme-manufacturing/electrical/AC-PB42_Wiring_Diagram.pdf',
    'application/pdf', 819200),
 
   ('60000000-0000-0000-0000-000000000005',
-   p_pow_1, org_bolt,
+   p_pow_1, org_bolt, pl_power,
    'BT-DRL20_Operators_Manual.pdf',
    'bolt-industries/power-tools/BT-DRL20_Operators_Manual.pdf',
    'application/pdf', 3145728),
 
   ('60000000-0000-0000-0000-000000000006',
-   p_fast_2, org_bolt,
+   p_fast_2, org_bolt, pl_fast,
    'BT-SDS-38_Load_Tables.pdf',
    'bolt-industries/fasteners/BT-SDS-38_Load_Tables.pdf',
    'application/pdf', 614400)
 ON CONFLICT (id) DO NOTHING;
 
 -- =============================================================
--- ACCESS GRANTS
--- Grant 1: SupplyChain Direct → Acme HVAC Controls (line-scoped)
--- Grant 2: SupplyChain Direct → all Bolt products   (org-wide, NULL line)
--- Grant 3: Parts Planet → Bolt Fasteners            (line-scoped)
+-- ACCESS GRANTS  (scope model: scope_type + scope_id)
+-- Grant 1: SupplyChain Direct → Acme HVAC Controls (product_line scope)
+-- Grant 2: SupplyChain Direct → all Bolt products   (all scope)
+-- Grant 3: Parts Planet       → Bolt Fasteners      (product_line scope)
 -- =============================================================
 INSERT INTO access_grants
-  (id, manufacturer_org_id, distributor_org_id, product_line_id, granted_by)
+  (id, manufacturer_org_id, grantee_org_id, scope_type, scope_id, granted_by)
 VALUES
   ('70000000-0000-0000-0000-000000000001',
-   org_acme,  org_supply, pl_hvac,  user_alice),
+   org_acme, org_supply, 'product_line', pl_hvac, user_alice),
 
   ('70000000-0000-0000-0000-000000000002',
-   org_bolt,  org_supply, NULL,     user_bob),
+   org_bolt, org_supply, 'all',          NULL,    user_bob),
 
   ('70000000-0000-0000-0000-000000000003',
-   org_bolt,  org_parts,  pl_fast,  user_bob)
+   org_bolt, org_parts,  'product_line', pl_fast, user_bob)
 ON CONFLICT DO NOTHING;
 
 END $$;
