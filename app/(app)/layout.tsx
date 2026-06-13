@@ -13,12 +13,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-4">
           <span className="font-semibold text-lg">Tome</span>
           {org?.type === 'manufacturer' && (
-            <Link
-              href="/catalog"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Catalog
-            </Link>
+            <>
+              <Link
+                href="/catalog"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Catalog
+              </Link>
+              <Link
+                href="/access"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Access
+              </Link>
+              <Link
+                href="/profile"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Profile
+              </Link>
+            </>
           )}
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
