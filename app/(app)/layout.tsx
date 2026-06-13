@@ -1,0 +1,26 @@
+import { redirect } from 'next/navigation'
+import { getUser } from '@/lib/auth/get-user'
+import { signOut } from '@/lib/auth/actions'
+
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const { user, profile, org } = await getUser()
+  if (!user) redirect('/login')
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b px-6 py-3 flex items-center justify-between">
+        <span className="font-semibold text-lg">Tome</span>
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <span>{profile?.full_name}</span>
+          <span className="text-xs bg-muted px-2 py-0.5 rounded">{org?.type}</span>
+          <form action={signOut}>
+            <button type="submit" className="hover:text-foreground transition-colors">
+              Sign out
+            </button>
+          </form>
+        </div>
+      </header>
+      <main className="flex-1 p-6">{children}</main>
+    </div>
+  )
+}

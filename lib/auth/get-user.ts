@@ -22,6 +22,7 @@ export interface Org {
 
 export async function getUser(): Promise<
   | { user: User; profile: Profile; org: Org }
+  | { user: User; profile: null; org: null }
   | { user: null; profile: null; org: null }
 > {
   const supabase = await createClient()
