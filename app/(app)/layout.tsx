@@ -34,6 +34,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               </Link>
             </>
           )}
+          {org?.type === 'distributor' && (
+            <Link
+              href="/browse"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Browse
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <span>{profile?.full_name}</span>
