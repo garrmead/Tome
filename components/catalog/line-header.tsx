@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Pencil } from "lucide-react"
+import { toast } from "sonner"
 
 import { updateProductLine } from "@/lib/catalog/actions"
 import type { ProductLine } from "@/lib/catalog/types"
@@ -16,17 +17,16 @@ export function LineHeader({ line }: { line: ProductLine }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(line.name)
   const [description, setDescription] = useState(line.description ?? "")
-  const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   function save() {
-    setError(null)
     startTransition(async () => {
       const result = await updateProductLine(line.id, { name, description })
       if ("error" in result) {
-        setError(result.error)
+        toast.error(result.error)
         return
       }
+      toast.success("Product line updated.")
       setEditing(false)
       router.refresh()
     })
@@ -35,7 +35,6 @@ export function LineHeader({ line }: { line: ProductLine }) {
   function cancel() {
     setName(line.name)
     setDescription(line.description ?? "")
-    setError(null)
     setEditing(false)
   }
 
@@ -58,7 +57,6 @@ export function LineHeader({ line }: { line: ProductLine }) {
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">
           <Button onClick={save} disabled={pending}>
             {pending ? "Saving…" : "Save"}

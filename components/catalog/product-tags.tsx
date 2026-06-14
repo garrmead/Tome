@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
+import { toast } from "sonner"
 
 import { addProductTag, removeProductTag } from "@/lib/catalog/actions"
 import type { Tag } from "@/lib/catalog/types"
@@ -25,17 +26,15 @@ export function ProductTags({
 }) {
   const router = useRouter()
   const [value, setValue] = useState("")
-  const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   function add() {
     const name = value.trim()
     if (!name) return
-    setError(null)
     startTransition(async () => {
       const result = await addProductTag(productId, name)
       if ("error" in result) {
-        setError(result.error)
+        toast.error(result.error)
         return
       }
       setValue("")
@@ -44,11 +43,10 @@ export function ProductTags({
   }
 
   function remove(tagId: string) {
-    setError(null)
     startTransition(async () => {
       const result = await removeProductTag(productId, tagId)
       if ("error" in result) {
-        setError(result.error)
+        toast.error(result.error)
         return
       }
       router.refresh()
@@ -63,7 +61,7 @@ export function ProductTags({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           {tags.length === 0 && (
-            <p className="text-sm text-muted-foreground">No tags</p>
+            <p className="text-sm text-muted-foreground">No tags yet. Add one below.</p>
           )}
           {tags.map((tag) => (
             <Badge key={tag.id} variant="secondary" className="gap-1">
@@ -86,17 +84,13 @@ export function ProductTags({
             onChange={(e) => setValue(e.target.value)}
             placeholder="Add a tag"
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                add()
-              }
+              if (e.key === "Enter") { e.preventDefault(); add() }
             }}
           />
           <Button onClick={add} disabled={pending || !value.trim()}>
             Add
           </Button>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
       </CardContent>
     </Card>
   )

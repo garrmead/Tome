@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Shield, List, Package, File, Check, AlertTriangle, Loader2, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { searchDistributorOrgs, createGrants } from '@/lib/access/actions'
 import type { DistributorOrg, EmailResolution, ScopeType } from '@/lib/access/types'
 import type { ProductLine, Product, ProductFile } from '@/lib/catalog/types'
@@ -411,11 +412,14 @@ export function GrantDialog({ productLines, products, files }: Props) {
               <DialogClose asChild>
                 <Button
                   onClick={() => {
+                    toast.success(
+                      `${result.grants_created} grant${result.grants_created !== 1 ? 's' : ''} created.`
+                    )
                     router.refresh()
                     resetAll()
                   }}
                 >
-                  Close
+                  Done
                 </Button>
               </DialogClose>
             </DialogFooter>

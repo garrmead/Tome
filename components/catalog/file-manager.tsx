@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { FileText, Loader2, Trash2, Upload, X } from "lucide-react"
+import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
 import { deleteFile, registerUploadedFile } from "@/lib/catalog/actions"
@@ -84,9 +85,7 @@ export function FileManager({
   }
 
   function setItemType(id: string, fileType: FileType) {
-    setQueue((q) =>
-      q.map((item) => (item.id === id ? { ...item, fileType } : item))
-    )
+    setQueue((q) => q.map((item) => (item.id === id ? { ...item, fileType } : item)))
   }
 
   function removeItem(id: string) {
@@ -97,14 +96,12 @@ export function FileManager({
     const supabase = createClient()
     setUploading(true)
 
-    // Snapshot the items that need uploading at the start of the run.
     const pending = queue.filter((item) => item.status === "queued")
+    let successCount = 0
 
     for (const item of pending) {
       setQueue((q) =>
-        q.map((it) =>
-          it.id === item.id ? { ...it, status: "uploading", error: undefined } : it
-        )
+        q.map((it) => it.id === item.id ? { ...it, status: "uploading", error: undefined } : it)
       )
 
       const path = `${orgId}/${product.id}/${item.file.name}`
@@ -115,12 +112,9 @@ export function FileManager({
 
       if (storageError) {
         setQueue((q) =>
-          q.map((it) =>
-            it.id === item.id
-              ? { ...it, status: "error", error: storageError.message }
-              : it
-          )
+          q.map((it) => it.id === item.id ? { ...it, status: "error", error: storageError.message } : it)
         )
+        toast.error(`Failed to upload "${item.file.name}": ${storageError.message}`)
         continue
       }
 
@@ -135,28 +129,33 @@ export function FileManager({
 
       if ("error" in result) {
         setQueue((q) =>
-          q.map((it) =>
-            it.id === item.id
-              ? { ...it, status: "error", error: result.error }
-              : it
-          )
+          q.map((it) => it.id === item.id ? { ...it, status: "error", error: result.error } : it)
         )
+        toast.error(`Could not register "${item.file.name}": ${result.error}`)
         continue
       }
 
-      setQueue((q) =>
-        q.map((it) => (it.id === item.id ? { ...it, status: "done" } : it))
-      )
+      setQueue((q) => q.map((it) => (it.id === item.id ? { ...it, status: "done" } : it)))
+      successCount++
     }
 
     setUploading(false)
     setQueue((q) => q.filter((item) => item.status !== "done"))
     router.refresh()
+
+    if (successCount > 0) {
+      toast.success(`${successCount} file${successCount > 1 ? "s" : ""} uploaded.`)
+    }
   }
 
   function handleDelete(file: ProductFile) {
     startTransition(async () => {
-      await deleteFile(file.id, file.storage_path, product.id)
+      const result = await deleteFile(file.id, file.storage_path, product.id)
+      if ("error" in result) {
+        toast.error(result.error)
+        return
+      }
+      toast.success(`"${file.filename}" deleted.`)
       router.refresh()
     })
   }
@@ -174,56 +173,34 @@ export function FileManager({
           tabIndex={0}
           onClick={() => inputRef.current?.click()}
           onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault()
-              inputRef.current?.click()
-            }
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click() }
           }}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setDragging(true)
-          }}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
           onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault()
-            setDragging(false)
-            addFiles(e.dataTransfer.files)
-          }}
+          onDrop={(e) => { e.preventDefault(); setDragging(false); addFiles(e.dataTransfer.files) }}
           className={cn(
             "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-8 text-center transition-colors",
             dragging ? "border-primary bg-accent" : "hover:bg-accent/50"
           )}
         >
           <Upload className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm font-medium">
-            Drag PDFs here or click to browse
-          </p>
-          <p className="text-xs text-muted-foreground">
-            You can upload multiple files at once.
-          </p>
+          <p className="text-sm font-medium">Drag PDFs here or click to browse</p>
+          <p className="text-xs text-muted-foreground">You can upload multiple files at once.</p>
           <input
             ref={inputRef}
             type="file"
             multiple
             className="hidden"
-            onChange={(e) => {
-              addFiles(e.target.files)
-              e.target.value = ""
-            }}
+            onChange={(e) => { addFiles(e.target.files); e.target.value = "" }}
           />
         </div>
 
         {queue.length > 0 && (
           <div className="space-y-2">
             {queue.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 rounded-md border p-2"
-              >
+              <div key={item.id} className="flex items-center gap-3 rounded-md border p-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">
-                    {item.file.name}
-                  </p>
+                  <p className="truncate text-sm font-medium">{item.file.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {formatSize(item.file.size)}
                     {item.status === "error" && item.error && (
@@ -231,45 +208,29 @@ export function FileManager({
                     )}
                   </p>
                 </div>
-                <Select
-                  value={item.fileType}
-                  onValueChange={(v) => setItemType(item.id, v as FileType)}
-                  disabled={item.status !== "queued"}
-                >
+                <Select value={item.fileType} onValueChange={(v) => setItemType(item.id, v as FileType)} disabled={item.status !== "queued"}>
                   <SelectTrigger className="w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {FILE_TYPES.map((ft) => (
-                      <SelectItem key={ft} value={ft}>
-                        {FILE_TYPE_LABELS[ft]}
-                      </SelectItem>
+                      <SelectItem key={ft} value={ft}>{FILE_TYPE_LABELS[ft]}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {item.status === "uploading" ? (
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeItem(item.id)}
-                    aria-label="Remove from queue"
-                  >
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(item.id)} aria-label="Remove from queue">
                     <X className="h-4 w-4" />
                   </Button>
                 )}
               </div>
             ))}
-
             {queuedCount > 0 && (
               <Button onClick={processQueue} disabled={uploading}>
                 {uploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Uploading…
-                  </>
+                  <><Loader2 className="h-4 w-4 animate-spin" />Uploading…</>
                 ) : (
                   `Upload ${queuedCount} file${queuedCount === 1 ? "" : "s"}`
                 )}
@@ -281,9 +242,7 @@ export function FileManager({
         {files.length === 0 && queue.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-6 text-center text-muted-foreground">
             <FileText className="h-8 w-8" />
-            <p className="text-sm">
-              No files attached yet. Drag PDFs here or click to browse.
-            </p>
+            <p className="text-sm">No files attached yet. Drag PDFs here or click to browse.</p>
           </div>
         ) : files.length > 0 ? (
           <Table>
@@ -301,23 +260,12 @@ export function FileManager({
                   <TableCell className="font-medium">{file.filename}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">
-                      {file.file_type
-                        ? FILE_TYPE_LABELS[file.file_type as FileType] ??
-                          file.file_type
-                        : "—"}
+                      {file.file_type ? FILE_TYPE_LABELS[file.file_type as FileType] ?? file.file_type : "—"}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatSize(file.file_size)}
-                  </TableCell>
+                  <TableCell className="text-muted-foreground">{formatSize(file.file_size)}</TableCell>
                   <TableCell>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(file)}
-                      aria-label={`Delete ${file.filename}`}
-                    >
+                    <Button type="button" variant="ghost" size="icon" onClick={() => handleDelete(file)} aria-label={`Delete ${file.filename}`}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </TableCell>

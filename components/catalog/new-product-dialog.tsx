@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
+import { toast } from "sonner"
 
 import { createProduct } from "@/lib/catalog/actions"
 import { Button } from "@/components/ui/button"
@@ -39,7 +40,6 @@ export function NewProductDialog({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const {
@@ -50,7 +50,6 @@ export function NewProductDialog({
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   function onSubmit(values: FormValues) {
-    setError(null)
     startTransition(async () => {
       const result = await createProduct({
         product_line_id: lineId,
@@ -59,9 +58,10 @@ export function NewProductDialog({
         category: values.category,
       })
       if ("error" in result) {
-        setError(result.error)
+        toast.error(result.error)
         return
       }
+      toast.success(`Product "${values.name}" created.`)
       setOpen(false)
       reset()
       router.refresh()
@@ -80,18 +80,14 @@ export function NewProductDialog({
         <form onSubmit={handleSubmit(onSubmit)}>
           <DialogHeader>
             <DialogTitle>New Product</DialogTitle>
-            <DialogDescription>
-              Add a product to this line.
-            </DialogDescription>
+            <DialogDescription>Add a product to this line.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="p-model">Model Number</Label>
               <Input id="p-model" {...register("model_number")} />
               {errors.model_number && (
-                <p className="text-sm text-destructive">
-                  {errors.model_number.message}
-                </p>
+                <p className="text-sm text-destructive">{errors.model_number.message}</p>
               )}
             </div>
             <div className="space-y-2">
@@ -105,7 +101,6 @@ export function NewProductDialog({
               <Label htmlFor="p-category">Category</Label>
               <Input id="p-category" {...register("category")} />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>

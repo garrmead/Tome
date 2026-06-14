@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Plus } from "lucide-react"
+import { toast } from "sonner"
 
 import { createProductLine } from "@/lib/catalog/actions"
 import { Button } from "@/components/ui/button"
@@ -40,7 +41,6 @@ export function NewProductLineDialog({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
 
   const {
@@ -51,16 +51,16 @@ export function NewProductLineDialog({
   } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   function onSubmit(values: FormValues) {
-    setError(null)
     startTransition(async () => {
       const result = await createProductLine({
         name: values.name,
         description: values.description,
       })
       if ("error" in result) {
-        setError(result.error)
+        toast.error(result.error)
         return
       }
+      toast.success(`Product line "${values.name}" created.`)
       setOpen(false)
       reset()
       router.refresh()
@@ -95,7 +95,6 @@ export function NewProductLineDialog({
               <Label htmlFor="pl-description">Description</Label>
               <Textarea id="pl-description" {...register("description")} />
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={pending}>

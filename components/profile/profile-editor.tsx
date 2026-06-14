@@ -6,6 +6,7 @@ import { Loader2, Plus, X, Upload, ImageIcon } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import {
   upsertManufacturerProfile,
@@ -154,11 +155,12 @@ export function ProfileEditor({ profile, org }: Props) {
         enable_price_books: enablePriceBooks,
       })
       if ("error" in result) {
+        toast.error(result.error)
         setSaveMsg({ ok: false, text: result.error })
       } else {
-        setSaveMsg({ ok: true, text: "Saved!" })
+        toast.success("Profile saved.")
+        setSaveMsg(null)
         router.refresh()
-        setTimeout(() => setSaveMsg(null), 3000)
       }
     })
   }

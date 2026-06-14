@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ShieldOff, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { revokeGrants } from '@/lib/access/actions'
 import type { GrantWithDetails } from '@/lib/access/types'
 import { Card, CardContent } from '@/components/ui/card'
@@ -48,11 +49,7 @@ export function GrantsTable({ grants }: Props) {
   const someChecked = selected.size > 0
 
   function toggleAll() {
-    if (allChecked) {
-      setSelected(new Set())
-    } else {
-      setSelected(new Set(allIds))
-    }
+    setSelected(allChecked ? new Set() : new Set(allIds))
   }
 
   function toggleRow(id: string) {
@@ -64,23 +61,34 @@ export function GrantsTable({ grants }: Props) {
     })
   }
 
-  async function handleRevoke(ids: string[]) {
+  async function doRevoke(ids: string[]) {
     const result = await revokeGrants(ids)
-    if (!('error' in result)) {
-      router.refresh()
+    if ('error' in result) {
+      toast.error(result.error)
+      return false
     }
+    return true
   }
 
   async function handleSingleRevoke(id: string) {
     setRevoking(id)
-    await handleRevoke([id])
+    const ok = await doRevoke([id])
     setRevoking(null)
+    if (ok) {
+      toast.success('Grant revoked.')
+      router.refresh()
+    }
   }
 
   function handleBulkRevoke() {
+    const ids = [...selected]
     startBulkTransition(async () => {
-      await handleRevoke([...selected])
-      setSelected(new Set())
+      const ok = await doRevoke(ids)
+      if (ok) {
+        toast.success(`${ids.length} grant${ids.length > 1 ? 's' : ''} revoked.`)
+        setSelected(new Set())
+        router.refresh()
+      }
     })
   }
 
@@ -88,12 +96,7 @@ export function GrantsTable({ grants }: Props) {
     <div className="space-y-3">
       {someChecked && (
         <div className="flex items-center gap-2">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleBulkRevoke}
-            disabled={bulkPending}
-          >
+          <Button variant="destructive" size="sm" onClick={handleBulkRevoke} disabled={bulkPending}>
             {bulkPending && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
             Revoke selected ({selected.size})
           </Button>
@@ -104,11 +107,7 @@ export function GrantsTable({ grants }: Props) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
-                <Checkbox
-                  checked={allChecked}
-                  onCheckedChange={toggleAll}
-                  aria-label="Select all"
-                />
+                <Checkbox checked={allChecked} onCheckedChange={toggleAll} aria-label="Select all" />
               </TableHead>
               <TableHead>Distributor</TableHead>
               <TableHead>User restriction</TableHead>
@@ -122,24 +121,13 @@ export function GrantsTable({ grants }: Props) {
             {grants.map((grant) => (
               <TableRow key={grant.id} data-state={selected.has(grant.id) ? 'selected' : undefined}>
                 <TableCell>
-                  <Checkbox
-                    checked={selected.has(grant.id)}
-                    onCheckedChange={() => toggleRow(grant.id)}
-                    aria-label={`Select grant ${grant.id}`}
-                  />
+                  <Checkbox checked={selected.has(grant.id)} onCheckedChange={() => toggleRow(grant.id)} aria-label={`Select grant ${grant.id}`} />
                 </TableCell>
-                <TableCell>
-                  {grant.grantee_org?.name ??
-                    (grant.grantee_user_id ? 'Specific user' : '—')}
-                </TableCell>
-                <TableCell>
-                  {grant.grantee_user_profile?.full_name ?? 'Entire org'}
-                </TableCell>
+                <TableCell>{grant.grantee_org?.name ?? (grant.grantee_user_id ? 'Specific user' : '—')}</TableCell>
+                <TableCell>{grant.grantee_user_profile?.full_name ?? 'Entire org'}</TableCell>
                 <TableCell>{grant.scope_label}</TableCell>
                 <TableCell>{grant.grantor_profile?.full_name ?? '—'}</TableCell>
-                <TableCell>
-                  {new Date(grant.created_at).toLocaleDateString()}
-                </TableCell>
+                <TableCell>{new Date(grant.created_at).toLocaleDateString()}</TableCell>
                 <TableCell>
                   <Button
                     variant="ghost"
@@ -148,11 +136,7 @@ export function GrantsTable({ grants }: Props) {
                     onClick={() => handleSingleRevoke(grant.id)}
                     disabled={revoking === grant.id}
                   >
-                    {revoking === grant.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      'Revoke'
-                    )}
+                    {revoking === grant.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Revoke'}
                   </Button>
                 </TableCell>
               </TableRow>
