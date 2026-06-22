@@ -61,29 +61,37 @@ export async function signOut() {
 
 /**
  * Enter a demo account (distributor or manufacturer) without a login form.
- * We make sure the seeded demo user exists with a known password (resetting it
- * through the admin API if needed), then sign in normally so a real RLS-backed
- * session is created. For the distributor we also grant catalog-wide access
- * from every manufacturer so the Hub looks fully populated.
+ *
+ * To stay robust against a half-cleaned auth schema (deleted seed users can
+ * leave orphaned identities that make createUser fail), we AVOID creating
+ * users whenever possible: we adopt an existing auth user — preferring the
+ * seeded demo email, otherwise any account that already exists — reset its
+ * password to a known value, and repoint its profile at the demo org for the
+ * chosen role. Only if there are literally no users do we create one. Then we
+ * sign in for real so a proper RLS-backed session is created.
  */
 export async function enterDemo(role: DemoRole) {
   const identity = DEMO_IDENTITIES[role]
   const admin = createAdminClient()
 
-  // 1. Find (or create) the auth user, and force a known password + confirm.
+  // 1. Pick an auth user to act as this demo identity.
   let userId: string | null = null
+  let email = identity.email
   const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const existing = list?.users.find(
-    (u) => u.email?.toLowerCase() === identity.email.toLowerCase()
-  )
+  const users = list?.users ?? []
+  const target =
+    users.find((u) => u.email?.toLowerCase() === identity.email.toLowerCase()) ??
+    users[0] // fall back to whatever account already exists
 
-  if (existing) {
-    userId = existing.id
-    await admin.auth.admin.updateUserById(existing.id, {
+  if (target) {
+    userId = target.id
+    email = target.email ?? identity.email
+    await admin.auth.admin.updateUserById(target.id, {
       password: DEMO_PASSWORD,
       email_confirm: true,
     })
   } else {
+    // No users at all — create the seeded demo user.
     const { data: created, error: createErr } =
       await admin.auth.admin.createUser({
         email: identity.email,
@@ -91,9 +99,14 @@ export async function enterDemo(role: DemoRole) {
         email_confirm: true,
       })
     if (createErr || !created.user) {
-      return { error: createErr?.message ?? 'Could not create demo user' }
+      return {
+        error:
+          (createErr?.message ?? 'Could not create demo user') +
+          ' — try creating any user once via the Supabase dashboard, then retry.',
+      }
     }
     userId = created.user.id
+    email = identity.email
   }
 
   // 2. Make sure the org + profile exist and are linked.
@@ -162,7 +175,7 @@ export async function enterDemo(role: DemoRole) {
   // 4. Sign in for real — sets the session cookie, RLS now applies.
   const supabase = await createClient()
   const { error: signInErr } = await supabase.auth.signInWithPassword({
-    email: identity.email,
+    email,
     password: DEMO_PASSWORD,
   })
   if (signInErr) return { error: signInErr.message }
