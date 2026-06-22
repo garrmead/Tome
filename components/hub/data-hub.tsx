@@ -26,11 +26,18 @@ import type {
   HubNotification,
   Special,
 } from "@/lib/hub/types"
+import dynamic from "next/dynamic"
 import { applyEligibleLines } from "@/lib/hub/specials"
 import { loadManufacturerHub } from "@/app/(hub)/hub/actions"
-import { FileViewer } from "@/components/distributor/file-viewer"
 import { getFileSignedUrl } from "@/lib/distributor/actions"
 import { AccountSwitcher } from "@/components/dev/account-switcher"
+
+// react-pdf / pdfjs must only ever load in the browser, on demand — importing
+// it eagerly evaluates pdf.mjs at module load and crashes the whole page.
+const FileViewer = dynamic(
+  () => import("@/components/distributor/file-viewer").then((m) => m.FileViewer),
+  { ssr: false }
+)
 
 // ── Design tokens from the handoff, mapped to literals so Tailwind's JIT
 //    picks them up. Cool-blue accent for the whole UI; red reserved for
@@ -574,7 +581,9 @@ export function DataHub({
         )}
       </div>
 
-      <FileViewer fileId={viewerFileId} open={viewerOpen} onOpenChange={setViewerOpen} />
+      {viewerOpen && (
+        <FileViewer fileId={viewerFileId} open onOpenChange={setViewerOpen} />
+      )}
     </div>
   )
 }
