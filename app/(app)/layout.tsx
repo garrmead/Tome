@@ -22,7 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </>
           )}
           {org?.type === 'distributor' && (
-            <Link href="/browse" className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
+            <>
+              <Link href="/hub"    className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Hub</Link>
+              <Link href="/browse" className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Browse</Link>
+            </>
           )}
         </div>
 
