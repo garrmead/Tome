@@ -16,9 +16,8 @@ import {
 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import type { ManufacturerCard } from "@/lib/distributor/types"
 import type {
@@ -28,15 +27,27 @@ import type {
   Special,
 } from "@/lib/hub/types"
 import { applyEligibleLines } from "@/lib/hub/specials"
-import { loadManufacturerHub } from "@/app/(app)/hub/actions"
+import { loadManufacturerHub } from "@/app/(hub)/hub/actions"
 import { FileViewer } from "@/components/distributor/file-viewer"
 import { getFileSignedUrl } from "@/lib/distributor/actions"
+import { AccountSwitcher } from "@/components/dev/account-switcher"
+
+// ── Design tokens from the handoff, mapped to literals so Tailwind's JIT
+//    picks them up. Cool-blue accent for the whole UI; red reserved for
+//    specials only.
+const ACCENT = "#2f6ea3"
+const ACCENT_SOFT = "#e2edf5"
+const RED = "#c8362b"
+const RED_SOFT = "#fdeceb"
+const RED_BORDER = "#f3c9c5"
 
 interface Props {
   manufacturers: ManufacturerCard[]
   specials: Special[]
   notifications: HubNotification[]
   contextLabel: string
+  orgType?: "manufacturer" | "distributor"
+  userName: string | null
 }
 
 type TabKey = "lines" | "contacts" | "pricebooks" | "cheatsheets"
@@ -61,15 +72,32 @@ function formatRelative(d: string): string {
   if (days <= 0) return "today"
   if (days === 1) return "1d ago"
   if (days < 30) return `${days}d ago`
-  const months = Math.floor(days / 30)
-  return `${months}mo ago`
+  return `${Math.floor(days / 30)}mo ago`
 }
+
+/** Small blue outline chip used for "$" / "$ ELIGIBLE" tags. */
+function DollarTag({ label = "$" }: { label?: string }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-[3px] border px-1.5 py-px text-[10px] font-semibold leading-none"
+      style={{ color: ACCENT, borderColor: ACCENT }}
+      title="Special"
+    >
+      {label}
+    </span>
+  )
+}
+
+const MONO_LABEL =
+  "font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
 
 export function DataHub({
   manufacturers,
   specials: initialSpecials,
   notifications: initialNotifs,
   contextLabel,
+  orgType,
+  userName,
 }: Props) {
   const [selectedMfrId, setSelectedMfrId] = useState<string | null>(
     manufacturers[0]?.org.id ?? null
@@ -94,7 +122,6 @@ export function DataHub({
 
   const searchRef = useRef<HTMLInputElement>(null)
 
-  // ⌘K / Ctrl+K focuses the global search.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -106,7 +133,6 @@ export function DataHub({
     return () => window.removeEventListener("keydown", onKey)
   }, [])
 
-  // Load the selected manufacturer's hub data; reset item & filter on switch.
   useEffect(() => {
     if (!selectedMfrId) return
     setData(null)
@@ -127,7 +153,6 @@ export function DataHub({
     [manufacturers, selectedMfrId]
   )
 
-  // Map of manufacturer-id → has-special, for rail $ flags.
   const specialByMfr = useMemo(() => {
     const map = new Map<string, Special>()
     for (const s of initialSpecials) map.set(s.manufacturerOrgId, s)
@@ -138,7 +163,6 @@ export function DataHub({
     ? specialByMfr.get(selectedMfr.org.id) ?? null
     : null
 
-  // Bind eligible line ids once the manufacturer's lines load.
   const activeSpecial = useMemo<Special | null>(() => {
     if (!rawActiveSpecial) return null
     if (!data) return rawActiveSpecial
@@ -168,9 +192,7 @@ export function DataHub({
     return data.lines.filter((l) => l.name.toLowerCase().includes(q))
   }, [data, itemFilter])
 
-  const selectedLine =
-    data?.lines.find((l) => l.id === selectedItemId) ?? null
-
+  const selectedLine = data?.lines.find((l) => l.id === selectedItemId) ?? null
   const eligibleLineIds = new Set(activeSpecial?.eligibleLineIds ?? [])
 
   function openFile(id: string) {
@@ -189,7 +211,6 @@ export function DataHub({
     setNotifications((ns) => ns.map((n) => ({ ...n, unread: false })))
   }
 
-  // Counts shown in the tabs.
   const counts = {
     lines: data?.lines.length ?? selectedMfr?.product_count ?? 0,
     contacts: data?.contacts.length ?? 0,
@@ -198,31 +219,35 @@ export function DataHub({
   }
 
   return (
-    <div className="flex h-[calc(100svh-57px)] -m-4 sm:-m-6 flex-col overflow-hidden bg-muted/30">
+    <div className="flex h-full flex-col overflow-hidden bg-muted/30 font-mono text-foreground">
       {/* ── Top bar ─────────────────────────────────────────────── */}
       <div className="flex h-[52px] shrink-0 items-center gap-4 border-b bg-background px-4">
         <div className="flex items-center gap-2">
-          <div className="h-5 w-5 rounded-sm bg-primary" />
-          <span className="text-[13px] font-semibold tracking-tight">
+          <div
+            className="h-5 w-5 rounded-[4px] border-2"
+            style={{ borderColor: ACCENT }}
+          />
+          <span className="text-[13px] font-semibold tracking-[0.08em]">
             DATAHUB
           </span>
         </div>
         <Separator orientation="vertical" className="h-6" />
-        <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          {contextLabel}
-        </span>
+        <span className={cn(MONO_LABEL, "hidden md:inline")}>{contextLabel}</span>
 
         <div className="relative mx-auto w-full max-w-[560px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchRef}
-            className="h-[38px] border-2 border-primary pl-9 pr-14 text-sm focus-visible:ring-0"
+            className="h-[38px] border-2 pl-9 pr-14 text-sm focus-visible:ring-0"
+            style={{ borderColor: ACCENT }}
             placeholder="Search files, product lines, contacts…"
           />
-          <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          <kbd className={cn(MONO_LABEL, "absolute right-2 top-1/2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5")}>
             ⌘K
           </kbd>
         </div>
+
+        <AccountSwitcher current={orgType} />
 
         <button
           className="relative flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted"
@@ -234,13 +259,22 @@ export function DataHub({
         >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#c8362b] px-1 text-[9px] font-semibold text-white">
+            <span
+              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold text-white"
+              style={{ backgroundColor: ACCENT }}
+            >
               {unreadCount}
             </span>
           )}
         </button>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-          <UserRound className="h-4 w-4 text-muted-foreground" />
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white"
+          style={{ backgroundColor: ACCENT }}
+          title={userName ?? undefined}
+        >
+          <span className="text-[11px] font-semibold">
+            {(userName ?? "?").slice(0, 1).toUpperCase()}
+          </span>
         </div>
       </div>
 
@@ -250,12 +284,10 @@ export function DataHub({
         <aside className="flex w-[262px] shrink-0 flex-col border-r bg-background">
           <div className="px-4 pb-3 pt-3.5">
             <div className="mb-2.5 flex items-center justify-between">
-              <span className="font-mono text-[10px] uppercase tracking-widest text-foreground">
+              <span className={cn(MONO_LABEL, "text-foreground")}>
                 Manufacturers · {manufacturers.length}
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                A–Z ▾
-              </span>
+              <span className={MONO_LABEL}>A–Z ▾</span>
             </div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
@@ -276,21 +308,16 @@ export function DataHub({
                 <button
                   key={m.org.id}
                   onClick={() => setSelectedMfrId(m.org.id)}
-                  className={cn(
-                    "flex w-full items-center gap-3 border-l-2 px-4 py-2.5 text-left transition-colors",
-                    active
-                      ? "border-primary bg-primary/5"
-                      : "border-transparent hover:bg-muted/50"
-                  )}
+                  className="flex w-full items-center gap-3 border-l-2 px-4 py-2.5 text-left transition-colors"
+                  style={{
+                    backgroundColor: active ? ACCENT_SOFT : undefined,
+                    borderLeftColor: active ? ACCENT : "transparent",
+                  }}
                 >
                   <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center overflow-hidden rounded bg-muted">
                     {m.logo_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.logo_url}
-                        alt=""
-                        className="h-full w-full object-cover"
-                      />
+                      <img src={m.logo_url} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <span className="font-mono text-[8px] uppercase tracking-wider text-muted-foreground">
                         {m.org.name.slice(0, 3)}
@@ -301,20 +328,16 @@ export function DataHub({
                     <p
                       className={cn(
                         "truncate text-[12px]",
-                        active
-                          ? "font-semibold text-foreground"
-                          : "text-muted-foreground"
+                        active ? "font-semibold text-foreground" : "text-muted-foreground"
                       )}
                     >
                       {m.org.name}
                     </p>
-                    <p className="truncate font-mono text-[9px] uppercase tracking-widest text-muted-foreground/70">
+                    <p className={cn(MONO_LABEL, "truncate text-[9px]")}>
                       {m.product_count} products
                     </p>
                   </div>
-                  {hasSpecial && (
-                    <SpecialDollarTag />
-                  )}
+                  {hasSpecial && <DollarTag />}
                 </button>
               )
             })}
@@ -335,15 +358,9 @@ export function DataHub({
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
                   {selectedMfr.logo_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={selectedMfr.logo_url}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
+                    <img src={selectedMfr.logo_url} alt="" className="h-full w-full object-cover" />
                   ) : (
-                    <span className="font-mono text-[10px] uppercase text-muted-foreground">
-                      logo
-                    </span>
+                    <span className="font-mono text-[10px] uppercase text-muted-foreground">logo</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -351,61 +368,57 @@ export function DataHub({
                     <h1 className="text-[17px] font-semibold leading-none">
                       {selectedMfr.org.name}
                     </h1>
-                    <Badge variant="outline" className="font-normal">
+                    <span
+                      className="rounded-[3px] border px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground"
+                    >
                       {selectedMfr.org.slug} · principal
-                    </Badge>
+                    </span>
                   </div>
-                  <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    {counts.lines} product lines · territory{" "}
+                  <p className={cn(MONO_LABEL, "mt-2")}>
+                    {counts.lines} product lines · updated 3d ago · territory{" "}
                     {contextLabel.split("·")[1]?.trim() ?? "—"}
                   </p>
                 </div>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="font-mono text-xs">
                   <Network className="mr-1.5 h-3.5 w-3.5" />
                   Hierarchy
                 </Button>
-                <Button size="sm">
+                <Button
+                  size="sm"
+                  className="font-mono text-xs text-white hover:opacity-90"
+                  style={{ backgroundColor: ACCENT }}
+                >
                   Open portal
                   <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
                 </Button>
               </div>
 
-              {/* 3b. Promo strip */}
+              {/* 3b. Promo strip — red */}
               {activeSpecial && !specialDismissed && (
                 <div
                   className="flex flex-wrap items-center gap-3.5 border-b px-6 py-2.5"
-                  style={{
-                    backgroundColor: "#fdeceb",
-                    borderBottomColor: "#f3c9c5",
-                  }}
+                  style={{ backgroundColor: RED_SOFT, borderBottomColor: RED_BORDER }}
                 >
-                  <Badge
-                    className="rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide"
-                    style={{
-                      backgroundColor: "#c8362b",
-                      color: "#fff",
-                      borderColor: "#c8362b",
-                    }}
+                  <span
+                    className="rounded-[3px] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white"
+                    style={{ backgroundColor: RED }}
                   >
                     {activeSpecial.label}
-                  </Badge>
-                  <span className="text-[13px] font-semibold text-foreground">
+                  </span>
+                  <span className="font-sans text-[13px] font-semibold text-foreground">
                     {activeSpecial.headline}
                   </span>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <span className={MONO_LABEL}>
                     Ends{" "}
-                    {new Date(activeSpecial.endsOn).toLocaleDateString(
-                      undefined,
-                      { month: "short", day: "numeric" }
-                    )}
+                    {new Date(activeSpecial.endsOn).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}
                     {data && activeSpecial.eligibleLineIds.length > 0 && (
                       <>
-                        {" "}
-                        ·{" "}
+                        {" · "}
                         {data.lines
-                          .filter((l) =>
-                            activeSpecial.eligibleLineIds.includes(l.id)
-                          )
+                          .filter((l) => activeSpecial.eligibleLineIds.includes(l.id))
                           .map((l) => l.name)
                           .join(" · ")}
                       </>
@@ -414,24 +427,18 @@ export function DataHub({
                   <div className="ml-auto flex items-center gap-3">
                     <Button
                       size="sm"
-                      style={{
-                        backgroundColor: "#c8362b",
-                        color: "#fff",
-                      }}
-                      className="hover:opacity-90"
+                      className="font-mono text-xs text-white hover:opacity-90"
+                      style={{ backgroundColor: RED }}
                     >
                       Start a quote
                     </Button>
                     <button
                       onClick={() =>
-                        setDismissedSpecials((s) =>
-                          new Set([...s, activeSpecial.id])
-                        )
+                        setDismissedSpecials((s) => new Set([...s, activeSpecial.id]))
                       }
-                      className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+                      className={cn(MONO_LABEL, "flex items-center gap-1.5 hover:text-foreground")}
                     >
-                      View terms
-                      <X className="h-3 w-3" />
+                      View terms <X className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
@@ -447,9 +454,7 @@ export function DataHub({
                       onClick={() => setTab(t.key)}
                       className={cn(
                         "relative flex items-center gap-1.5 py-3 text-[13px] transition-colors",
-                        active
-                          ? "font-semibold text-foreground"
-                          : "text-muted-foreground hover:text-foreground"
+                        active ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground"
                       )}
                     >
                       {t.label}
@@ -457,14 +462,17 @@ export function DataHub({
                         {counts[t.key]}
                       </span>
                       {active && (
-                        <span className="absolute -bottom-px left-0 right-0 h-0.5 bg-primary" />
+                        <span
+                          className="absolute -bottom-px left-0 right-0 h-0.5"
+                          style={{ backgroundColor: ACCENT }}
+                        />
                       )}
                     </button>
                   )
                 })}
               </div>
 
-              {/* 3d. Body — varies by tab */}
+              {/* 3d. Body */}
               <div className="flex min-h-0 flex-1">
                 {loading || !data ? (
                   <HubBodySkeleton />
@@ -483,17 +491,9 @@ export function DataHub({
                 ) : tab === "contacts" ? (
                   <ContactsPane contacts={data.contacts} />
                 ) : tab === "pricebooks" ? (
-                  <FlatFileList
-                    title="Price sheets"
-                    files={data.pricebooks}
-                    onOpenFile={openFile}
-                  />
+                  <FlatFileList title="Price sheets" files={data.pricebooks} onOpenFile={openFile} />
                 ) : (
-                  <FlatFileList
-                    title="Cheat sheets"
-                    files={data.cheatsheets}
-                    onOpenFile={openFile}
-                  />
+                  <FlatFileList title="Cheat sheets" files={data.cheatsheets} onOpenFile={openFile} />
                 )}
               </div>
             </>
@@ -506,74 +506,50 @@ export function DataHub({
 
         {/* Notifications panel */}
         {notifOpen && (
-          <div
-            className="absolute right-4 top-2 z-20 w-[340px] rounded-md border bg-background shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="absolute right-4 top-2 z-20 w-[340px] rounded-md border bg-background shadow-lg">
             <div className="flex items-center justify-between border-b px-4 py-3">
               <span className="text-sm font-semibold">Notifications</span>
-              <button
-                onClick={() => setNotifOpen(false)}
-                className="text-muted-foreground hover:text-foreground"
-              >
+              <button onClick={() => setNotifOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <div className="max-h-[420px] overflow-y-auto">
               {notifications.length === 0 ? (
                 <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-                  You're all caught up.
+                  You&apos;re all caught up.
                 </p>
               ) : (
                 notifications
                   .slice()
-                  .sort((a, b) =>
-                    a.kind === b.kind ? 0 : a.kind === "special" ? -1 : 1
-                  )
+                  .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === "special" ? -1 : 1))
                   .map((n) => (
-                    <div
-                      key={n.id}
-                      className="border-b px-4 py-3 last:border-b-0"
-                    >
+                    <div key={n.id} className="border-b px-4 py-3 last:border-b-0">
                       <div className="mb-1 flex items-center gap-2">
                         {n.kind === "special" ? (
-                          <Badge
-                            className="rounded-full px-1.5 py-0 text-[9px] font-semibold tracking-wide"
-                            style={{
-                              backgroundColor: "#c8362b",
-                              color: "#fff",
-                              borderColor: "#c8362b",
-                            }}
+                          <span
+                            className="rounded-[3px] px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider text-white"
+                            style={{ backgroundColor: RED }}
                           >
                             SPECIAL
-                          </Badge>
+                          </span>
                         ) : (
-                          <Badge
-                            variant="secondary"
-                            className="rounded-full px-1.5 py-0 text-[9px] font-semibold tracking-wide"
-                          >
+                          <span className="rounded-[3px] bg-muted px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
                             UPDATE
-                          </Badge>
+                          </span>
                         )}
                         <span className="text-xs font-medium text-foreground">
                           {n.manufacturerName}
                         </span>
-                        <span className="ml-auto font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                        <span className={cn(MONO_LABEL, "ml-auto text-[9px]")}>
                           {formatRelative(n.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[13px] font-medium leading-snug">
-                        {n.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {n.body}
-                      </p>
+                      <p className="font-sans text-[13px] font-medium leading-snug">{n.title}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>
                       {n.kind === "special" && n.specialId && (
                         <button
                           onClick={() => {
-                            const s = initialSpecials.find(
-                              (x) => x.id === n.specialId
-                            )
+                            const s = initialSpecials.find((x) => x.id === n.specialId)
                             if (s) {
                               setSelectedMfrId(s.manufacturerOrgId)
                               setDismissedSpecials((d) => {
@@ -584,7 +560,8 @@ export function DataHub({
                               setNotifOpen(false)
                             }
                           }}
-                          className="mt-1.5 text-xs font-medium text-primary hover:underline"
+                          className="mt-1.5 text-xs font-medium hover:underline"
+                          style={{ color: ACCENT }}
                         >
                           View special →
                         </button>
@@ -597,24 +574,8 @@ export function DataHub({
         )}
       </div>
 
-      <FileViewer
-        fileId={viewerFileId}
-        open={viewerOpen}
-        onOpenChange={setViewerOpen}
-      />
+      <FileViewer fileId={viewerFileId} open={viewerOpen} onOpenChange={setViewerOpen} />
     </div>
-  )
-}
-
-function SpecialDollarTag() {
-  return (
-    <span
-      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[10px] font-bold text-white"
-      style={{ backgroundColor: "#c8362b" }}
-      title="Active special"
-    >
-      $
-    </span>
   )
 }
 
@@ -683,7 +644,7 @@ function LinesBrowser({
               className="h-[30px] pl-7 text-xs"
             />
           </div>
-          <button className="rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-muted">
+          <button className={cn(MONO_LABEL, "rounded-full border px-2 py-1 hover:bg-muted")}>
             Sort ▾
           </button>
         </div>
@@ -695,28 +656,25 @@ function LinesBrowser({
               <button
                 key={line.id}
                 onClick={() => setSelectedItemId(line.id)}
-                className={cn(
-                  "flex w-full items-center justify-between gap-3 border-l-2 px-3.5 py-2.5 text-left transition-colors",
-                  active
-                    ? "border-primary bg-primary/5"
-                    : "border-transparent hover:bg-muted/50"
-                )}
+                className="flex w-full items-center justify-between gap-3 border-l-2 px-3.5 py-2.5 text-left transition-colors"
+                style={{
+                  backgroundColor: active ? ACCENT_SOFT : undefined,
+                  borderLeftColor: active ? ACCENT : "transparent",
+                }}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span
                       className={cn(
                         "truncate text-[12px]",
-                        active
-                          ? "font-semibold text-foreground"
-                          : "text-muted-foreground"
+                        active ? "font-semibold text-foreground" : "text-muted-foreground"
                       )}
                     >
                       {line.name}
                     </span>
-                    {elig && <SpecialDollarTag />}
+                    {elig && <DollarTag />}
                   </div>
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                  <span className={cn(MONO_LABEL, "text-[9px]")}>
                     {line.product_count} products · {line.file_count} files
                   </span>
                 </div>
@@ -742,28 +700,14 @@ function LinesBrowser({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5">
-                  <h2 className="text-[15px] font-semibold leading-none">
-                    {selectedLine.name}
-                  </h2>
-                  {eligible && (
-                    <Badge
-                      className="rounded-full px-1.5 py-0 text-[10px] font-semibold tracking-wide"
-                      style={{
-                        backgroundColor: "#c8362b",
-                        color: "#fff",
-                        borderColor: "#c8362b",
-                      }}
-                    >
-                      $ ELIGIBLE
-                    </Badge>
-                  )}
+                  <h2 className="text-[15px] font-semibold leading-none">{selectedLine.name}</h2>
+                  {eligible && <DollarTag label="$ ELIGIBLE" />}
                 </div>
-                <p className="mt-1.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {selectedLine.product_count} products ·{" "}
-                  {selectedLine.file_count} files
+                <p className={cn(MONO_LABEL, "mt-1.5")}>
+                  {selectedLine.product_count} products · {selectedLine.file_count} files
                 </p>
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="font-mono text-xs">
                 <UserRound className="mr-1.5 h-3.5 w-3.5" />
                 Primary contact info
               </Button>
@@ -771,6 +715,8 @@ function LinesBrowser({
                 size="sm"
                 onClick={doDownloadAll}
                 disabled={downloading || selectedLine.files.length === 0}
+                className="font-mono text-xs text-white hover:opacity-90"
+                style={{ backgroundColor: ACCENT }}
               >
                 {downloading ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -783,58 +729,63 @@ function LinesBrowser({
 
             <div className="flex min-h-0 flex-1 flex-col gap-3.5 p-5">
               <div>
-                <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Files
-                </p>
+                <p className={cn(MONO_LABEL, "mb-2")}>Files</p>
                 <div className="overflow-hidden rounded-md border bg-background">
                   {selectedLine.files.length === 0 ? (
                     <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                       No files attached to this line.
                     </p>
                   ) : (
-                    selectedLine.files.map((f, i) => (
-                      <div
-                        key={f.id}
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2.5",
-                          i > 0 && "border-t"
-                        )}
-                      >
-                        <div className="flex h-[30px] w-6 shrink-0 items-center justify-center rounded-sm bg-muted">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    selectedLine.files.map((f, i) => {
+                      const isPdf =
+                        (f.file_type ?? "").toLowerCase().includes("datasheet") ||
+                        (f.file_type ?? "").toLowerCase() === "manual" ||
+                        (f.file_type ?? "").toLowerCase() === "iom" ||
+                        (f.file_type ?? "").toLowerCase() === "pricebook" ||
+                        (f.file_type ?? "").toLowerCase() === "brochure"
+                      return (
+                        <div
+                          key={f.id}
+                          className={cn("flex items-center gap-3 px-3 py-2.5", i > 0 && "border-t")}
+                        >
+                          <div className="flex h-[30px] w-6 shrink-0 items-center justify-center rounded-sm bg-muted">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          </div>
+                          <span className="flex-1 truncate font-sans text-[12px] font-medium">
+                            {f.filename}
+                          </span>
+                          <span
+                            className="rounded-[3px] border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+                            style={
+                              isPdf
+                                ? { color: ACCENT, borderColor: ACCENT }
+                                : { color: "hsl(var(--muted-foreground))" }
+                            }
+                          >
+                            {f.file_type ?? "file"}
+                          </span>
+                          <span className={cn(MONO_LABEL, "w-14 text-right")}>
+                            {formatSize(f.file_size)}
+                          </span>
+                          <button
+                            onClick={() => onOpenFile(f.id)}
+                            className="rounded-full border px-2.5 py-1 text-[10px] hover:bg-muted"
+                          >
+                            Open
+                          </button>
                         </div>
-                        <span className="flex-1 truncate text-[12px] font-medium">
-                          {f.filename}
-                        </span>
-                        <Badge
-                          variant={f.file_type === "datasheet" ? "default" : "secondary"}
-                          className="rounded-sm font-mono text-[9px] uppercase tracking-wider"
-                        >
-                          {f.file_type ?? "file"}
-                        </Badge>
-                        <span className="w-14 text-right font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                          {formatSize(f.file_size)}
-                        </span>
-                        <button
-                          onClick={() => onOpenFile(f.id)}
-                          className="rounded-full border px-2.5 py-1 text-[10px] hover:bg-muted"
-                        >
-                          Open
-                        </button>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>
 
               <div className="flex min-h-0 flex-1 gap-3.5">
-                <div className="flex flex-1 items-center justify-center rounded-md border bg-background text-xs text-muted-foreground">
+                <div className={cn(MONO_LABEL, "flex flex-1 items-center justify-center rounded-md border bg-background")}>
                   document preview
                 </div>
                 <aside className="flex w-[206px] shrink-0 flex-col gap-3 rounded-md border bg-background p-3.5">
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Metadata
-                  </span>
+                  <span className={MONO_LABEL}>Metadata</span>
                   <div className="space-y-2 text-xs">
                     <MetaRow label="UPDATED" value={formatRelative(selectedLine.updated_at)} />
                     <MetaRow label="FILES" value={String(selectedLine.file_count)} />
@@ -842,24 +793,18 @@ function LinesBrowser({
                     <MetaRow label="FORMAT" value="mixed" />
                   </div>
                   <Separator />
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                    Tags
-                  </span>
+                  <span className={MONO_LABEL}>Tags</span>
                   <div className="flex flex-wrap gap-1.5">
-                    <Badge variant="secondary" className="rounded-full text-[10px]">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                       {selectedLine.name.split(" ")[0]}
-                    </Badge>
+                    </span>
                     {eligible && (
-                      <Badge
-                        className="rounded-full text-[10px]"
-                        style={{
-                          backgroundColor: "#c8362b",
-                          color: "#fff",
-                          borderColor: "#c8362b",
-                        }}
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] text-white"
+                        style={{ backgroundColor: RED }}
                       >
                         Special
-                      </Badge>
+                      </span>
                     )}
                   </div>
                 </aside>
@@ -879,19 +824,13 @@ function LinesBrowser({
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-        {label}
-      </span>
-      <span className="text-foreground">{value}</span>
+      <span className={MONO_LABEL}>{label}</span>
+      <span className="font-sans text-foreground">{value}</span>
     </div>
   )
 }
 
-function ContactsPane({
-  contacts,
-}: {
-  contacts: HubManufacturerData["contacts"]
-}) {
+function ContactsPane({ contacts }: { contacts: HubManufacturerData["contacts"] }) {
   if (contacts.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
@@ -902,44 +841,38 @@ function ContactsPane({
   return (
     <div className="grid flex-1 auto-rows-min gap-3 overflow-y-auto p-6 sm:grid-cols-2 lg:grid-cols-3">
       {contacts.map((c) => (
-        <div
-          key={c.id}
-          className="flex flex-col gap-2 rounded-md border bg-background p-4"
-        >
+        <div key={c.id} className="flex flex-col gap-2 rounded-md border bg-background p-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
-              <UserRound className="h-4 w-4 text-muted-foreground" />
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-full text-white"
+              style={{ backgroundColor: ACCENT }}
+            >
+              <span className="text-[11px] font-semibold">
+                {c.name.slice(0, 1).toUpperCase()}
+              </span>
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{c.name}</p>
+              <p className="truncate font-sans text-sm font-semibold">{c.name}</p>
               <p className="truncate text-xs text-muted-foreground">{c.title}</p>
             </div>
           </div>
           <div className="space-y-1 text-xs">
             {c.email && (
               <p>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  email
-                </span>{" "}
-                <a href={`mailto:${c.email}`} className="text-primary hover:underline">
+                <span className={MONO_LABEL}>email</span>{" "}
+                <a href={`mailto:${c.email}`} className="hover:underline" style={{ color: ACCENT }}>
                   {c.email}
                 </a>
               </p>
             )}
             {c.phone && (
               <p>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  phone
-                </span>{" "}
-                {c.phone}
+                <span className={MONO_LABEL}>phone</span> <span className="font-sans">{c.phone}</span>
               </p>
             )}
             {c.region && (
               <p>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  region
-                </span>{" "}
-                {c.region}
+                <span className={MONO_LABEL}>region</span> <span className="font-sans">{c.region}</span>
               </p>
             )}
           </div>
@@ -967,30 +900,21 @@ function FlatFileList({
   }
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-        {title}
-      </p>
+      <p className={cn(MONO_LABEL, "mb-3")}>{title}</p>
       <div className="overflow-hidden rounded-md border bg-background">
         {files.map((f, i) => (
-          <div
-            key={f.id}
-            className={cn(
-              "flex items-center gap-3 px-3 py-2.5",
-              i > 0 && "border-t"
-            )}
-          >
+          <div key={f.id} className={cn("flex items-center gap-3 px-3 py-2.5", i > 0 && "border-t")}>
             <div className="flex h-[30px] w-6 shrink-0 items-center justify-center rounded-sm bg-muted">
               <FileText className="h-3.5 w-3.5 text-muted-foreground" />
             </div>
-            <span className="flex-1 truncate text-[12px] font-medium">
-              {f.filename}
-            </span>
-            <Badge variant="secondary" className="rounded-sm font-mono text-[9px] uppercase tracking-wider">
+            <span className="flex-1 truncate font-sans text-[12px] font-medium">{f.filename}</span>
+            <span
+              className="rounded-[3px] border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider"
+              style={{ color: ACCENT, borderColor: ACCENT }}
+            >
               {f.file_type ?? "file"}
-            </Badge>
-            <span className="w-14 text-right font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              {formatSize(f.file_size)}
             </span>
+            <span className={cn(MONO_LABEL, "w-14 text-right")}>{formatSize(f.file_size)}</span>
             <button
               onClick={() => onOpenFile(f.id)}
               className="rounded-full border px-2.5 py-1 text-[10px] hover:bg-muted"

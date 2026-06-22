@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth/get-user'
 import { signOut } from '@/lib/auth/actions'
 import { SearchCommand } from '@/components/search/search-command'
+import { AccountSwitcher } from '@/components/dev/account-switcher'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, profile, org } = await getUser()
@@ -34,10 +35,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <SearchCommand orgType={org?.type} />
         </div>
 
-        {/* Right: user info + sign out */}
+        {/* Right: demo account switcher + user info + sign out */}
         <div className="flex items-center gap-3 shrink-0 text-sm text-muted-foreground">
-          <span className="hidden sm:block">{profile?.full_name}</span>
-          <span className="text-xs bg-muted px-2 py-0.5 rounded">{org?.type}</span>
+          <AccountSwitcher current={org?.type} />
+          <span className="hidden md:block">{profile?.full_name}</span>
           <form action={signOut}>
             <button type="submit" className="hover:text-foreground transition-colors">Sign out</button>
           </form>

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { updateSession } from '@/lib/supabase/middleware'
 
-const PUBLIC_PATHS = ['/login', '/signup', '/accept-invite']
+const PUBLIC_PATHS = ['/demo', '/login', '/signup', '/accept-invite']
 
 export async function middleware(request: NextRequest) {
   const sessionResponse = await updateSession(request)
@@ -31,7 +31,7 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL('/demo', request.url))
   }
 
   if (pathname !== '/signup/onboarding') {

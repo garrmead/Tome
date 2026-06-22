@@ -9,8 +9,8 @@ import {
 import { DataHub } from "@/components/hub/data-hub"
 
 export default async function HubPage() {
-  const { user, org } = await getUser()
-  if (!user) redirect("/login")
+  const { user, profile, org } = await getUser()
+  if (!user) redirect("/demo")
 
   const manufacturers = await getAccessibleManufacturers()
   const specials = buildMockSpecials(manufacturers)
@@ -26,6 +26,8 @@ export default async function HubPage() {
       specials={specials}
       notifications={notifications}
       contextLabel={contextLabel.toUpperCase()}
+      orgType={org?.type}
+      userName={profile?.full_name ?? null}
     />
   )
 }
