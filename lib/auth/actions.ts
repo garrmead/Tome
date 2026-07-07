@@ -86,10 +86,17 @@ export async function enterDemo(role: DemoRole) {
   if (target) {
     userId = target.id
     email = target.email ?? identity.email
-    await admin.auth.admin.updateUserById(target.id, {
-      password: DEMO_PASSWORD,
-      email_confirm: true,
-    })
+    const { error: updateErr } = await admin.auth.admin.updateUserById(
+      target.id,
+      {
+        password: DEMO_PASSWORD,
+        email_confirm: true,
+      }
+    )
+    if (updateErr) {
+      console.error('[enterDemo] failed to reset demo user password:', updateErr)
+      return { error: `Could not prepare demo user: ${updateErr.message}` }
+    }
   } else {
     // No users at all — create the seeded demo user.
     const { data: created, error: createErr } =
@@ -109,8 +116,10 @@ export async function enterDemo(role: DemoRole) {
     email = identity.email
   }
 
-  // 2. Make sure the org + profile exist and are linked.
-  await admin
+  // 2. Make sure the org + profile exist and are linked. These are hard
+  //    requirements — without a profile row, current_org_id() is NULL and
+  //    RLS hides everything, so surface failures instead of pressing on.
+  const { error: orgErr } = await admin
     .from('organizations')
     .upsert(
       {
@@ -121,8 +130,12 @@ export async function enterDemo(role: DemoRole) {
       },
       { onConflict: 'id' }
     )
+  if (orgErr) {
+    console.error('[enterDemo] failed to upsert demo org:', orgErr)
+    return { error: `Could not set up demo organization: ${orgErr.message}` }
+  }
 
-  await admin.from('profiles').upsert(
+  const { error: profileErr } = await admin.from('profiles').upsert(
     {
       id: userId!,
       org_id: identity.orgId,
@@ -131,44 +144,86 @@ export async function enterDemo(role: DemoRole) {
     },
     { onConflict: 'id' }
   )
+  if (profileErr) {
+    console.error('[enterDemo] failed to upsert demo profile:', profileErr)
+    return { error: `Could not set up demo profile: ${profileErr.message}` }
+  }
 
-  // 3. Distributor: ensure an 'all' grant from every manufacturer so the
-  //    Hub's rail and tabs are populated. Best-effort; never blocks sign-in.
+  // 3. Distributor: ensure an active 'all' grant from every manufacturer so
+  //    the Hub's rail and tabs are populated. Failures here don't block
+  //    sign-in, but they are always logged — an empty Hub with no error in
+  //    the server logs is exactly the bug this used to cause.
   if (role === 'distributor') {
-    try {
-      const { data: mfrs } = await admin
-        .from('organizations')
-        .select('id')
-        .eq('type', 'manufacturer')
+    const { data: mfrs, error: mfrsErr } = await admin
+      .from('organizations')
+      .select('id')
+      .eq('type', 'manufacturer')
+    if (mfrsErr) {
+      console.error('[enterDemo] failed to list manufacturers for demo grants:', mfrsErr)
+    }
 
-      for (const mfr of (mfrs ?? []) as { id: string }[]) {
-        const { data: already } = await admin
-          .from('access_grants')
-          .select('id')
-          .eq('manufacturer_org_id', mfr.id)
-          .eq('grantee_org_id', identity.orgId)
-          .eq('scope_type', 'all')
-          .is('grantee_user_id', null)
-          .maybeSingle()
-        if (already) continue
-
-        const { data: mfrAdmin } = await admin
-          .from('profiles')
-          .select('id')
-          .eq('org_id', mfr.id)
-          .limit(1)
-          .maybeSingle()
-
-        await admin.from('access_grants').insert({
-          manufacturer_org_id: mfr.id,
-          grantee_org_id: identity.orgId,
-          scope_type: 'all',
-          scope_id: null,
-          granted_by: mfrAdmin?.id ?? userId,
-        })
+    for (const mfr of (mfrs ?? []) as { id: string }[]) {
+      const { data: existing, error: existingErr } = await admin
+        .from('access_grants')
+        .select('id, revoked_at')
+        .eq('manufacturer_org_id', mfr.id)
+        .eq('grantee_org_id', identity.orgId)
+        .eq('scope_type', 'all')
+        .is('grantee_user_id', null)
+        .limit(1)
+        .maybeSingle()
+      if (existingErr) {
+        console.error(
+          `[enterDemo] failed to check existing grant for manufacturer ${mfr.id}:`,
+          existingErr
+        )
+        continue
       }
-    } catch {
-      // Populating grants is a nicety, not a requirement.
+
+      if (existing) {
+        // A revoked grant is invisible under RLS — reactivate it, since a
+        // fresh insert would collide with the unique constraint.
+        if (existing.revoked_at) {
+          const { error: unrevokeErr } = await admin
+            .from('access_grants')
+            .update({ revoked_at: null })
+            .eq('id', existing.id)
+          if (unrevokeErr) {
+            console.error(
+              `[enterDemo] failed to reactivate revoked grant ${existing.id}:`,
+              unrevokeErr
+            )
+          }
+        }
+        continue
+      }
+
+      const { data: mfrAdmin, error: mfrAdminErr } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('org_id', mfr.id)
+        .limit(1)
+        .maybeSingle()
+      if (mfrAdminErr) {
+        console.error(
+          `[enterDemo] failed to look up an admin for manufacturer ${mfr.id}:`,
+          mfrAdminErr
+        )
+      }
+
+      const { error: insertErr } = await admin.from('access_grants').insert({
+        manufacturer_org_id: mfr.id,
+        grantee_org_id: identity.orgId,
+        scope_type: 'all',
+        scope_id: null,
+        granted_by: mfrAdmin?.id ?? userId,
+      })
+      if (insertErr) {
+        console.error(
+          `[enterDemo] failed to create demo grant from manufacturer ${mfr.id}:`,
+          insertErr
+        )
+      }
     }
   }
 
