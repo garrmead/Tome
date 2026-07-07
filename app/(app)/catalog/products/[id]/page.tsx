@@ -18,14 +18,15 @@ interface Props {
 }
 
 export default async function ProductPage({ params }: Props) {
-  const product = await getProduct(params.id)
-  if (!product) notFound()
-
-  const [tags, files, { org }] = await Promise.all([
+  // Everything keys off params.id — run all four lookups in parallel instead
+  // of waterfalling product → (tags, files, user).
+  const [product, tags, files, { org }] = await Promise.all([
+    getProduct(params.id),
     getProductTags(params.id),
     getProductFiles(params.id),
     getUser(),
   ])
+  if (!product) notFound()
 
   return (
     <div className="space-y-6">

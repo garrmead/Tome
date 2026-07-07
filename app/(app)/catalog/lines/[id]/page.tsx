@@ -20,10 +20,13 @@ interface Props {
 }
 
 export default async function ProductLinePage({ params }: Props) {
-  const line = await getProductLine(params.id)
+  // Both queries only need the id — fetch them in parallel instead of
+  // waterfalling line → products.
+  const [line, products] = await Promise.all([
+    getProductLine(params.id),
+    getProductsForLine(params.id),
+  ])
   if (!line) notFound()
-
-  const products = await getProductsForLine(params.id)
 
   return (
     <div className="space-y-6">

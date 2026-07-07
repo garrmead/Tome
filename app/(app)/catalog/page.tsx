@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/card"
 
 export default async function CatalogPage() {
-  const { org } = await getUser()
+  // Fetch auth context and lines in parallel — RLS already scopes the lines
+  // to the caller's org, so the list is safe to request up front.
+  const [{ org }, lines] = await Promise.all([getUser(), getProductLines()])
 
   if (org?.type !== "manufacturer") {
     return (
@@ -27,8 +29,6 @@ export default async function CatalogPage() {
       </Card>
     )
   }
-
-  const lines = await getProductLines()
 
   return (
     <div className="space-y-6">

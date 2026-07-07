@@ -122,7 +122,15 @@ export function DataHub({
   )
 
   const [data, setData] = useState<HubManufacturerData | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [retryNonce, setRetryNonce] = useState(0)
   const [loading, startLoad] = useTransition()
+
+  // Client-side cache of per-manufacturer hub data so re-selecting a
+  // manufacturer is instant instead of round-tripping the server action again.
+  const hubCache = useRef(new Map<string, HubManufacturerData>())
+  // Guards against out-of-order responses when switching quickly.
+  const activeMfrRef = useRef<string | null>(null)
 
   const [viewerFileId, setViewerFileId] = useState<string | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
@@ -142,18 +150,41 @@ export function DataHub({
 
   useEffect(() => {
     if (!selectedMfrId) return
-    setData(null)
+    activeMfrRef.current = selectedMfrId
     setSelectedItemId(null)
     setItemFilter("")
     setTab("lines")
+    setLoadError(null)
+
+    // Already fetched this manufacturer? Serve it instantly from the cache.
+    const cached = hubCache.current.get(selectedMfrId)
+    if (cached) {
+      setData(cached)
+      setSelectedItemId(cached.lines[0]?.id ?? null)
+      return
+    }
+
+    setData(null)
+    const requestedId = selectedMfrId
     startLoad(async () => {
-      const res = await loadManufacturerHub(selectedMfrId)
-      if ("data" in res) {
-        setData(res.data)
-        setSelectedItemId(res.data.lines[0]?.id ?? null)
+      try {
+        const res = await loadManufacturerHub(requestedId)
+        // A newer selection superseded this request — drop the result.
+        if (activeMfrRef.current !== requestedId) return
+        if ("data" in res) {
+          hubCache.current.set(requestedId, res.data)
+          setData(res.data)
+          setSelectedItemId(res.data.lines[0]?.id ?? null)
+        } else {
+          setLoadError(res.error)
+        }
+      } catch {
+        if (activeMfrRef.current === requestedId) {
+          setLoadError("Something went wrong while loading this manufacturer.")
+        }
       }
     })
-  }, [selectedMfrId])
+  }, [selectedMfrId, retryNonce])
 
   const selectedMfr = useMemo(
     () => manufacturers.find((m) => m.org.id === selectedMfrId) ?? null,
@@ -208,9 +239,12 @@ export function DataHub({
   }
 
   async function handleDownloadAll(line: HubLine) {
-    for (const f of line.files) {
-      const res = await getFileSignedUrl(f.id)
-      if ("data" in res) window.open(res.data.url, "_blank")
+    // Sign all URLs in parallel — sequential awaits made big lines crawl.
+    const results = await Promise.all(
+      line.files.map((f) => getFileSignedUrl(f.id).catch(() => null))
+    )
+    for (const res of results) {
+      if (res && "data" in res) window.open(res.data.url, "_blank")
     }
   }
 
@@ -481,7 +515,12 @@ export function DataHub({
 
               {/* 3d. Body */}
               <div className="flex min-h-0 flex-1">
-                {loading || !data ? (
+                {loadError && !loading ? (
+                  <HubLoadError
+                    message={loadError}
+                    onRetry={() => setRetryNonce((n) => n + 1)}
+                  />
+                ) : loading || !data ? (
                   <HubBodySkeleton />
                 ) : tab === "lines" ? (
                   <LinesBrowser
@@ -505,8 +544,21 @@ export function DataHub({
               </div>
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-              No manufacturers shared with you yet.
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-md border-2"
+                style={{ borderColor: ACCENT }}
+              >
+                <Network className="h-5 w-5" style={{ color: ACCENT }} />
+              </div>
+              <p className="font-sans text-sm font-semibold text-foreground">
+                No manufacturers shared with you yet
+              </p>
+              <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                When a manufacturer grants your organization access to their
+                catalog, their product lines, price sheets, and contacts will
+                show up here automatically.
+              </p>
             </div>
           )}
         </div>
@@ -584,6 +636,33 @@ export function DataHub({
       {viewerOpen && (
         <FileViewer fileId={viewerFileId} open onOpenChange={setViewerOpen} />
       )}
+    </div>
+  )
+}
+
+function HubLoadError({
+  message,
+  onRetry,
+}: {
+  message: string
+  onRetry: () => void
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+      <p className="font-sans text-sm font-semibold text-foreground">
+        Couldn&apos;t load this manufacturer
+      </p>
+      <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+        {message}
+      </p>
+      <Button
+        size="sm"
+        onClick={onRetry}
+        className="font-mono text-xs text-white hover:opacity-90"
+        style={{ backgroundColor: ACCENT }}
+      >
+        Try again
+      </Button>
     </div>
   )
 }

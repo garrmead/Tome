@@ -9,10 +9,14 @@ import {
 import { DataHub } from "@/components/hub/data-hub"
 
 export default async function HubPage() {
-  const { user, profile, org } = await getUser()
+  // Auth and manufacturer list are independent — run them in parallel so the
+  // page isn't a two-step waterfall. RLS keeps the list scoped either way.
+  const [{ user, profile, org }, manufacturers] = await Promise.all([
+    getUser(),
+    getAccessibleManufacturers(),
+  ])
   if (!user) redirect("/demo")
 
-  const manufacturers = await getAccessibleManufacturers()
   const specials = buildMockSpecials(manufacturers)
   const notifications = buildMockNotifications(specials, manufacturers)
 

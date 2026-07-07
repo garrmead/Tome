@@ -1,3 +1,5 @@
+import { cache } from 'react'
+
 import { createClient } from '@/lib/supabase/server'
 import type { User } from '@supabase/supabase-js'
 
@@ -20,7 +22,10 @@ export interface Org {
   website: string | null
 }
 
-export async function getUser(): Promise<
+// Wrapped in React cache() so layout + page (and any nested server
+// components) share a single auth/profile lookup per request instead of
+// each paying the two Supabase round trips again.
+export const getUser = cache(async function getUser(): Promise<
   | { user: User; profile: Profile; org: Org }
   | { user: User; profile: null; org: null }
   | { user: null; profile: null; org: null }
@@ -39,4 +44,4 @@ export async function getUser(): Promise<
 
   const { organizations, ...profile } = data as any
   return { user, profile: profile as Profile, org: organizations as Org }
-}
+})
