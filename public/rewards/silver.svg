@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220" viewBox="0 0 400 220">
+  <rect width="400" height="220" fill="#eef1f4"/>
+  <rect width="400" height="220" fill="url(#g)" opacity="0.5"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9aa8b5" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#5b6b7a" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+  <!-- river + fly rod -->
+  <g stroke="#4e6172" stroke-width="5" fill="none" stroke-linecap="round">
+    <path d="M120 150 q40 -14 80 0 t80 0"/>
+    <path d="M150 128 L235 70"/>
+    <path d="M235 70 q34 6 26 40"/>
+  </g>
+  <text x="200" y="188" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" letter-spacing="3" fill="#4e6172">SILVER</text>
+</svg>

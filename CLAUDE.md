@@ -19,6 +19,7 @@ Tome is a B2B catalog-sharing platform that lets manufacturers publish their pro
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
+NEXT_PUBLIC_DEMO_MODE   # "true" shows the Log Demo Sale control in the Hub
 ```
 
 ## Migrations (apply in order)
@@ -28,6 +29,11 @@ supabase/migrations/20260613000001_schema.sql
 supabase/migrations/20260613000002_schema_align.sql
 supabase/migrations/20260613000003_rls_policies.sql
 supabase/migrations/20260613000004_manufacturer_profile_fields.sql
+supabase/migrations/20260712000001_rewards.sql
 ```
 
-Seed data (demo accounts, 30 products, sample grants): `supabase/seed.sql`
+Seed data (run in order): `supabase/seed.sql` (demo accounts, 30 products,
+sample grants), `supabase/seed_hub_mock.sql` (Hub mock files/contacts),
+`supabase/seed_rewards.sql` (Gorman-Rupp hero manufacturer + Summit Rewards
+program). Real Gorman-Rupp PDFs: drop into `demo_assets/gorman-rupp/` and run
+`npx tsx scripts/upload_hero_manufacturer_pdfs.ts`.

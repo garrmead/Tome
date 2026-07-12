@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220" viewBox="0 0 400 220">
+  <rect width="400" height="220" fill="#f6f0e2"/>
+  <rect width="400" height="220" fill="url(#g)" opacity="0.5"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d3b25f" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#a07d2a" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+  <!-- race track + flag -->
+  <g stroke="#8d6f26" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M120 150 q30 -46 80 -40 t80 -18"/>
+    <line x1="272" y1="70" x2="272" y2="120"/>
+    <path d="M272 70 h44 l-10 12 10 12 h-44 z" fill="#f6f0e2"/>
+  </g>
+  <text x="200" y="188" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" letter-spacing="3" fill="#8d6f26">GOLD</text>
+</svg>

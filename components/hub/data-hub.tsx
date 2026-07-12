@@ -31,6 +31,20 @@ import { applyEligibleLines } from "@/lib/hub/specials"
 import { loadManufacturerHub } from "@/app/(hub)/hub/actions"
 import { getFileSignedUrl } from "@/lib/distributor/actions"
 import { AccountSwitcher } from "@/components/dev/account-switcher"
+import type { RewardTier } from "@/lib/rewards/types"
+import {
+  ACCENT,
+  ACCENT_SOFT,
+  MONO_LABEL,
+  RED,
+  RED_BORDER,
+  RED_SOFT,
+} from "@/components/hub/tokens"
+import { useRewards } from "@/components/hub/rewards/use-rewards"
+import { TierIndicator } from "@/components/hub/rewards/tier-indicator"
+import { RewardsTab } from "@/components/hub/rewards/rewards-tab"
+import { DemoSaleButton } from "@/components/hub/rewards/demo-sale-button"
+import { TierCelebration } from "@/components/hub/rewards/tier-celebration"
 
 // react-pdf / pdfjs must only ever load in the browser, on demand — importing
 // it eagerly evaluates pdf.mjs at module load and crashes the whole page.
@@ -38,15 +52,6 @@ const FileViewer = dynamic(
   () => import("@/components/distributor/file-viewer").then((m) => m.FileViewer),
   { ssr: false }
 )
-
-// ── Design tokens from the handoff, mapped to literals so Tailwind's JIT
-//    picks them up. Cool-blue accent for the whole UI; red reserved for
-//    specials only.
-const ACCENT = "#2f6ea3"
-const ACCENT_SOFT = "#e2edf5"
-const RED = "#c8362b"
-const RED_SOFT = "#fdeceb"
-const RED_BORDER = "#f3c9c5"
 
 interface Props {
   manufacturers: ManufacturerCard[]
@@ -57,13 +62,14 @@ interface Props {
   userName: string | null
 }
 
-type TabKey = "lines" | "contacts" | "pricebooks" | "cheatsheets"
+type TabKey = "lines" | "contacts" | "pricebooks" | "cheatsheets" | "rewards"
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "lines", label: "Product Lines" },
   { key: "contacts", label: "Contact List" },
   { key: "pricebooks", label: "Price Sheets" },
   { key: "cheatsheets", label: "Cheat Sheets" },
+  { key: "rewards", label: "Rewards" },
 ]
 
 function formatSize(bytes: number | null): string {
@@ -94,9 +100,6 @@ function DollarTag({ label = "$" }: { label?: string }) {
     </span>
   )
 }
-
-const MONO_LABEL =
-  "font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
 
 export function DataHub({
   manufacturers,
@@ -134,6 +137,11 @@ export function DataHub({
 
   const [viewerFileId, setViewerFileId] = useState<string | null>(null)
   const [viewerOpen, setViewerOpen] = useState(false)
+
+  // Rewards layer: per-manufacturer program state + celebration modal.
+  const { data: rewards } = useRewards(selectedMfrId)
+  const [celebrateTier, setCelebrateTier] = useState<RewardTier | null>(null)
+  const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true"
 
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -252,12 +260,16 @@ export function DataHub({
     setNotifications((ns) => ns.map((n) => ({ ...n, unread: false })))
   }
 
-  const counts = {
+  const counts: Record<TabKey, number> = {
     lines: data?.lines.length ?? selectedMfr?.product_count ?? 0,
     contacts: data?.contacts.length ?? 0,
     pricebooks: data?.pricebooks.length ?? 0,
     cheatsheets: data?.cheatsheets.length ?? 0,
+    rewards: rewards?.tiers.length ?? 0,
   }
+
+  // Manufacturers without a program don't get a Rewards tab at all.
+  const visibleTabs = TABS.filter((t) => t.key !== "rewards" || !!rewards)
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-muted/30 font-mono text-foreground">
@@ -274,6 +286,8 @@ export function DataHub({
         </div>
         <Separator orientation="vertical" className="h-6" />
         <span className={cn(MONO_LABEL, "hidden md:inline")}>{contextLabel}</span>
+
+        {selectedMfr && rewards && <TierIndicator state={rewards} />}
 
         <div className="relative mx-auto w-full max-w-[560px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -487,7 +501,7 @@ export function DataHub({
 
               {/* 3c. Tabs */}
               <div className="flex gap-6 border-b bg-background px-6">
-                {TABS.map((t) => {
+                {visibleTabs.map((t) => {
                   const active = tab === t.key
                   return (
                     <button
@@ -515,7 +529,13 @@ export function DataHub({
 
               {/* 3d. Body */}
               <div className="flex min-h-0 flex-1">
-                {loadError && !loading ? (
+                {tab === "rewards" && rewards ? (
+                  <RewardsTab
+                    state={rewards}
+                    manufacturerName={selectedMfr.org.name}
+                    manufacturerOrgId={selectedMfr.org.id}
+                  />
+                ) : loadError && !loading ? (
                   <HubLoadError
                     message={loadError}
                     onRetry={() => setRetryNonce((n) => n + 1)}
@@ -635,6 +655,22 @@ export function DataHub({
 
       {viewerOpen && (
         <FileViewer fileId={viewerFileId} open onOpenChange={setViewerOpen} />
+      )}
+
+      {demoMode && selectedMfr && rewards && (
+        <DemoSaleButton
+          state={rewards}
+          manufacturerOrgId={selectedMfr.org.id}
+          onTierCrossed={setCelebrateTier}
+        />
+      )}
+      {rewards && selectedMfr && (
+        <TierCelebration
+          tier={celebrateTier}
+          programId={rewards.program.id}
+          manufacturerOrgId={selectedMfr.org.id}
+          onClose={() => setCelebrateTier(null)}
+        />
       )}
     </div>
   )

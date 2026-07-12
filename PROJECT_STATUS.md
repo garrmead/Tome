@@ -32,13 +32,22 @@ demo, not yet production-hardened.
 - Once in, the account switcher in the top bar flips between the two roles.
 
 ### ⚠️ Demo data must be loaded manually
-The demo **content** (product lines, files, contacts, price books, cheat sheets)
-lives in two SQL files that must be run in the Supabase SQL Editor — this is a
-manual step and is **not** done automatically:
+The demo **content** (product lines, files, contacts, price books, cheat sheets,
+rewards) lives in SQL files that must be run in the Supabase SQL Editor — this
+is a manual step and is **not** done automatically:
 
 1. `supabase/seed.sql` — orgs, product lines, ~30 products, sample grants
 2. `supabase/seed_hub_mock.sql` — profiles with contacts, ~50 line-level files,
-   price books, cheat sheets
+   price books, cheat sheets. **Requires the `20260712000001_rewards.sql`
+   migration first** — it relaxes `files.product_id` to nullable, without which
+   every line-level file insert in this seed fails.
+3. `supabase/seed_rewards.sql` — Gorman-Rupp hero manufacturer (org, lines,
+   contacts, grant to the demo distributor) + the Summit Rewards program
+   (3 tiers, leaderboard reps, activity history)
+
+To get **real PDF previews** for Gorman-Rupp, drop PDFs into
+`demo_assets/gorman-rupp/` (see its README for the naming convention) and run
+`npx tsx scripts/upload_hero_manufacturer_pdfs.ts`.
 
 The `enterDemo` flow creates the **access grants** automatically, but not the
 catalog content above. Verify what's loaded:
@@ -68,15 +77,28 @@ UNION ALL SELECT 'access_grants', count(*) FROM access_grants;
 
 ### Distributor surfaces
 - `/hub` — the full-screen Hub console (`app/(hub)/`, its own full-bleed layout):
-  manufacturer rail, four tabs (Lines / Contacts / Price Sheets / Cheat Sheets),
-  inline PDF viewer, Cmd-K search, notification bell
+  manufacturer rail, five tabs (Lines / Contacts / Price Sheets / Cheat Sheets /
+  Rewards), inline PDF viewer, Cmd-K search, notification bell
+- **Rewards layer (rep view)** — per-manufacturer tier programs:
+  - Persistent tier indicator in the Hub top bar (tier badge, animated progress
+    bar, dollars-to-next-tier, reward preview on hover)
+  - Rewards tab: tier ladder, reward catalog with locked/unlocked/claimed
+    states, team leaderboard (own row always visible), activity feed
+  - "Log Demo Sale" floating dev control (shown when
+    `NEXT_PUBLIC_DEMO_MODE=true`) that bumps GMV via the `log_reward_sale`
+    RPC; crossing a threshold fires a toast + celebration modal with a
+    claimable reward
+  - Data model: `reward_programs`, `reward_tiers`, `distributor_progress`,
+    `reward_earnings` (append-only), all RLS-gated; writes only via
+    SECURITY DEFINER RPCs (`log_reward_sale`, `claim_reward`)
 - `/browse` — accessible manufacturers
 - `/m/[slug]` — public manufacturer pages
 - `/search` — search across accessible catalogs
 
 ### Backend
-- 4 migrations in `supabase/migrations/` (schema, schema align, RLS policies,
-  manufacturer profile fields)
+- 5 migrations in `supabase/migrations/` (schema, schema align, RLS policies,
+  manufacturer profile fields, rewards — the last also fixes
+  `files.product_id` to allow line-level files)
 - RLS enforced on every distributor query via `SECURITY DEFINER` helpers
   (`has_manufacturer_access`, `has_product_access`, `has_file_access`) at both
   the Postgres and Storage layer
@@ -123,12 +145,13 @@ the natural instrumentation chokepoint.
 2. **Phase 2 — Analytics + bulk ingestion.** "Who's viewing what" for
    manufacturers (justifies them paying); CSV/file bulk import so a
    3,000-SKU manufacturer can onboard in an hour.
-3. **Phase 3 — Rewards.** Per-manufacturer points programs: distributors earn
-   points (new price-book downloads, new-product views, RFQ activity) toward
-   each manufacturer's own reward catalog. Ledger-based, server-side-only writes,
-   idempotency keys + daily caps for anti-abuse, manufacturer-funded budgets.
-   This is the intended business moat (redeemable only inside Tome = switching
-   costs).
+3. **Phase 3 — Rewards.** ✅ **Rep-side complete** (tier programs, GMV-based
+   tier ladder, Hub indicator + Rewards tab, demo sale trigger, celebration
+   flow). **Still pending:** manufacturer-side program console (configure
+   tiers, approve redemptions), and rewiring earning to the Phase-1 `events`
+   instrumentation (writes currently go straight to `reward_earnings` /
+   `distributor_progress` via RPCs — structured so that swap is
+   straightforward).
 4. **Phase 4 — RFQ / Request-a-Quote.** Capture buying intent that currently
    leaks to email; wires into notifications, analytics, and rewards.
 
@@ -143,5 +166,12 @@ the natural instrumentation chokepoint.
 - `lib/auth/actions.ts` — `enterDemo()` demo entry
 - `lib/auth/demo.ts` — demo identities
 - `lib/hub/specials.ts` — mocked specials/notifications (to be promoted to Postgres)
-- `supabase/migrations/` — schema + RLS
-- `supabase/seed.sql`, `supabase/seed_hub_mock.sql` — demo data (run manually)
+- `lib/rewards/actions.ts` — rewards reads + RPC wrappers (`getRewardsState`,
+  `logDemoSale`, `claimReward`)
+- `components/hub/rewards/` — tier indicator, Rewards tab, demo sale button,
+  celebration modal, `useRewards` TanStack hook
+- `scripts/upload_hero_manufacturer_pdfs.ts` — uploads real PDFs from
+  `demo_assets/gorman-rupp/` into Storage + `files` rows
+- `supabase/migrations/` — schema + RLS (incl. `20260712000001_rewards.sql`)
+- `supabase/seed.sql`, `supabase/seed_hub_mock.sql`, `supabase/seed_rewards.sql`
+  — demo data (run manually, in that order)

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="220" viewBox="0 0 400 220">
+  <rect width="400" height="220" fill="#f4ece4"/>
+  <rect width="400" height="220" fill="url(#g)" opacity="0.5"/>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c08a5a" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#8a5a2b" stop-opacity="0.35"/>
+    </linearGradient>
+  </defs>
+  <!-- cooler -->
+  <g stroke="#7a4f26" stroke-width="5" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="140" y="92" width="120" height="66" rx="8"/>
+    <path d="M133 92 h134 a8 8 0 0 1 8 8 v6 H125 v-6 a8 8 0 0 1 8-8 z" fill="#f4ece4"/>
+    <line x1="160" y1="122" x2="160" y2="140"/>
+    <line x1="240" y1="122" x2="240" y2="140"/>
+  </g>
+  <text x="200" y="188" text-anchor="middle" font-family="ui-monospace, monospace" font-size="13" letter-spacing="3" fill="#7a4f26">BRONZE</text>
+</svg>
