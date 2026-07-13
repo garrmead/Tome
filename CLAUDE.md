@@ -30,10 +30,12 @@ supabase/migrations/20260613000002_schema_align.sql
 supabase/migrations/20260613000003_rls_policies.sql
 supabase/migrations/20260613000004_manufacturer_profile_fields.sql
 supabase/migrations/20260712000001_rewards.sql
+supabase/migrations/20260713000001_platform.sql
 ```
 
 Seed data (run in order): `supabase/seed.sql` (demo accounts, 30 products,
 sample grants), `supabase/seed_hub_mock.sql` (Hub mock files/contacts),
 `supabase/seed_rewards.sql` (Gorman-Rupp hero manufacturer + Summit Rewards
-program). Real Gorman-Rupp PDFs: drop into `demo_assets/gorman-rupp/` and run
+program), `supabase/seed_platform.sql` (live specials). Real Gorman-Rupp PDFs:
+drop into `demo_assets/gorman-rupp/` and run
 `npx tsx scripts/upload_hero_manufacturer_pdfs.ts`.

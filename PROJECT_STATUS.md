@@ -122,38 +122,40 @@ UNION ALL SELECT 'access_grants', count(*) FROM access_grants;
 ## Known limitations / not yet done
 
 - **No real file bytes in Storage for seeded data** — previews/downloads of
-  seeded files fail (metadata-only seed).
+  seeded files fail (metadata-only seed) until real PDFs are uploaded via the
+  hero-manufacturer script or the new Bulk Upload dialog.
 - **Password login unused** — demo flow only. A real auth/onboarding path exists
   in code (`/login`, `/signup`) but isn't the primary entry.
-- **Specials & notifications are mocked** (`lib/hub/specials.ts`) — the Hub UI is
-  wired to them, but they aren't backed by Postgres yet.
-- **No bulk catalog ingestion** — manufacturers add products/files one at a time.
-- **No analytics, RFQ, or rewards** — see roadmap below.
+- **Rewards earning is not yet event-derived** — sales are logged via the demo
+  RPC; wiring automatic earning rules to the `events` table is future work.
+- **Analytics aggregates in TypeScript** — fine at demo scale; move to SQL
+  views/RPCs when event volume grows.
 
 ---
 
-## Roadmap (recommended build order)
+## Roadmap status
 
-The keystone is a single append-only **`events`** table (every view, search,
-download). Notifications, analytics, and rewards are all projections of it, and
-every file open already funnels through one server action (`getFileSignedUrl`) —
-the natural instrumentation chokepoint.
+The keystone `events` table exists and every file open funnels through
+`getFileSignedUrl` → `log_event`.
 
-1. **Phase 1 — Instrument + make mocks real (quick win).** Add `events` table +
-   logging; promote mocked Specials/Notifications to real Postgres tables. The
-   Hub UI is already wired for this.
-2. **Phase 2 — Analytics + bulk ingestion.** "Who's viewing what" for
-   manufacturers (justifies them paying); CSV/file bulk import so a
-   3,000-SKU manufacturer can onboard in an hour.
-3. **Phase 3 — Rewards.** ✅ **Rep-side complete** (tier programs, GMV-based
-   tier ladder, Hub indicator + Rewards tab, demo sale trigger, celebration
-   flow). **Still pending:** manufacturer-side program console (configure
-   tiers, approve redemptions), and rewiring earning to the Phase-1 `events`
-   instrumentation (writes currently go straight to `reward_earnings` /
-   `distributor_progress` via RPCs — structured so that swap is
-   straightforward).
-4. **Phase 4 — RFQ / Request-a-Quote.** Capture buying intent that currently
-   leaks to email; wires into notifications, analytics, and rewards.
+1. **Phase 1 — Instrumentation + real specials/notifications.** ✅ Done.
+   `events` table + `log_event` RPC; file previews/downloads, hub views, and
+   RFQ submissions are logged. Specials and notifications are real Postgres
+   tables with trigger fan-out (new special / new price book / RFQ status
+   change → per-user notifications). The Hub bell persists read state.
+2. **Phase 2 — Analytics + bulk ingestion.** ✅ Done. `/analytics` (stat
+   cards, 14-day activity chart, engagement by distributor, top files,
+   dormant grantees) and `/catalog` bulk tools (multi-file drag-and-drop
+   upload with type/line inference + review table; CSV product import with
+   column mapping, specs jsonb preservation, auto-created lines).
+3. **Phase 3 — Rewards.** ✅ Rep side AND manufacturer console done
+   (`/rewards`: program header + pause/resume, editable tier ladder,
+   distributor performance rollup, activity feed). Pending: deriving earning
+   automatically from `events` instead of the demo sale RPC.
+4. **Phase 4 — RFQ.** ✅ v1 done. Hub drawer (multi-line cart + notes) from
+   the line header and promo strip; manufacturer `/rfqs` queue with status
+   flow; notifications both directions; `rfq_submitted` logged to events.
+   Future: attach quotes/pricing documents, award points on RFQ won.
 
 ---
 
@@ -165,13 +167,19 @@ the natural instrumentation chokepoint.
 - `lib/distributor/actions.ts` — `getFileSignedUrl()` (the instrumentation chokepoint)
 - `lib/auth/actions.ts` — `enterDemo()` demo entry
 - `lib/auth/demo.ts` — demo identities
-- `lib/hub/specials.ts` — mocked specials/notifications (to be promoted to Postgres)
-- `lib/rewards/actions.ts` — rewards reads + RPC wrappers (`getRewardsState`,
-  `logDemoSale`, `claimReward`)
+- `lib/hub/queries.ts` — live specials + notifications reads
+- `lib/rewards/actions.ts` — rep-side rewards reads + RPC wrappers
+- `lib/rewards/manufacturer.ts` — manufacturer rewards console actions
+- `lib/rfq/actions.ts` — RFQ create + status flow
+- `lib/analytics/queries.ts` — event/grant reads for `/analytics`
 - `components/hub/rewards/` — tier indicator, Rewards tab, demo sale button,
   celebration modal, `useRewards` TanStack hook
+- `components/hub/rfq-drawer.tsx` — Hub quote-request drawer
+- `components/catalog/bulk-upload.tsx`, `components/catalog/csv-import.tsx` —
+  bulk ingestion dialogs
 - `scripts/upload_hero_manufacturer_pdfs.ts` — uploads real PDFs from
   `demo_assets/gorman-rupp/` into Storage + `files` rows
-- `supabase/migrations/` — schema + RLS (incl. `20260712000001_rewards.sql`)
-- `supabase/seed.sql`, `supabase/seed_hub_mock.sql`, `supabase/seed_rewards.sql`
-  — demo data (run manually, in that order)
+- `supabase/migrations/` — schema + RLS (incl. `20260712000001_rewards.sql`,
+  `20260713000001_platform.sql`)
+- `supabase/seed.sql`, `supabase/seed_hub_mock.sql`, `supabase/seed_rewards.sql`,
+  `supabase/seed_platform.sql` — demo data (run manually, in that order)
