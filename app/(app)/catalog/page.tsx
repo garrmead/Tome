@@ -3,6 +3,8 @@ import { Library } from "lucide-react"
 
 import { getUser } from "@/lib/auth/get-user"
 import { getProductLines } from "@/lib/catalog/queries"
+import { BulkUploadDialog } from "@/components/catalog/bulk-upload"
+import { CsvImportDialog } from "@/components/catalog/csv-import"
 import { NewProductLineDialog } from "@/components/catalog/new-product-line-dialog"
 import {
   Card,
@@ -34,7 +36,11 @@ export default async function CatalogPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Product Lines</h1>
-        <NewProductLineDialog />
+        <div className="flex items-center gap-2">
+          <CsvImportDialog />
+          <BulkUploadDialog orgId={org.id} lines={lines} />
+          <NewProductLineDialog />
+        </div>
       </div>
 
       {lines.length === 0 ? (

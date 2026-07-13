@@ -50,7 +50,9 @@ export interface Tag {
 
 export interface ProductFile {
   id: string
-  product_id: string
+  // Nullable: a file may attach at product-line level (product_line_id set,
+  // product_id null) instead of to a specific product.
+  product_id: string | null
   owner_org_id: string
   product_line_id: string | null
   filename: string
