@@ -2,23 +2,20 @@ import { redirect } from "next/navigation"
 
 import { getUser } from "@/lib/auth/get-user"
 import { getAccessibleManufacturers } from "@/lib/distributor/queries"
-import {
-  buildMockNotifications,
-  buildMockSpecials,
-} from "@/lib/hub/specials"
+import { getHubNotifications, getLiveSpecials } from "@/lib/hub/queries"
 import { DataHub } from "@/components/hub/data-hub"
 
 export default async function HubPage() {
-  // Auth and manufacturer list are independent — run them in parallel so the
-  // page isn't a two-step waterfall. RLS keeps the list scoped either way.
-  const [{ user, profile, org }, manufacturers] = await Promise.all([
-    getUser(),
-    getAccessibleManufacturers(),
-  ])
+  // All four reads are independent — run them in parallel so the page isn't
+  // a waterfall. RLS scopes every one of them to the caller.
+  const [{ user, profile, org }, manufacturers, specials, notifications] =
+    await Promise.all([
+      getUser(),
+      getAccessibleManufacturers(),
+      getLiveSpecials(),
+      getHubNotifications(),
+    ])
   if (!user) redirect("/demo")
-
-  const specials = buildMockSpecials(manufacturers)
-  const notifications = buildMockNotifications(specials, manufacturers)
 
   const contextLabel = `${org?.name ?? "Distributor"} · ${
     org?.type === "distributor" ? "SE-US" : "ALL"

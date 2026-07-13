@@ -17,9 +17,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/" className="font-semibold text-lg">Tome</Link>
           {org?.type === 'manufacturer' && (
             <>
-              <Link href="/catalog" className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Catalog</Link>
-              <Link href="/access"  className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Access</Link>
-              <Link href="/profile" className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Profile</Link>
+              <Link href="/catalog"   className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Catalog</Link>
+              <Link href="/access"    className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Access</Link>
+              <Link href="/analytics" className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Analytics</Link>
+              <Link href="/rfqs"      className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">RFQs</Link>
+              <Link href="/rewards"   className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Rewards</Link>
+              <Link href="/profile"   className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors">Profile</Link>
             </>
           )}
           {org?.type === 'distributor' && (

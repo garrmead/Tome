@@ -22,6 +22,13 @@ export async function loadManufacturerHub(
   } = await supabase.auth.getUser()
   if (!user) return { error: "Not authenticated" }
 
+  // Instrumentation: a rep opening a manufacturer's hub is the core
+  // engagement signal for analytics. Best-effort.
+  await supabase.rpc("log_event", {
+    p_manufacturer_org_id: orgId,
+    p_event_type: "hub_view",
+  })
+
   const [
     { data: profile },
     { data: lines },
@@ -108,4 +115,19 @@ export async function loadManufacturerHub(
       tagline: mfrProfile?.tagline ?? null,
     },
   }
+}
+
+/** Mark every unread notification for the caller as read. */
+export async function markAllNotificationsRead(): Promise<void> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return
+
+  await supabase
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .is("read_at", null)
+    .eq("recipient_user_id", user.id)
 }

@@ -27,8 +27,10 @@ import type {
   Special,
 } from "@/lib/hub/types"
 import dynamic from "next/dynamic"
-import { applyEligibleLines } from "@/lib/hub/specials"
-import { loadManufacturerHub } from "@/app/(hub)/hub/actions"
+import {
+  loadManufacturerHub,
+  markAllNotificationsRead,
+} from "@/app/(hub)/hub/actions"
 import { getFileSignedUrl } from "@/lib/distributor/actions"
 import { AccountSwitcher } from "@/components/dev/account-switcher"
 import type { RewardTier } from "@/lib/rewards/types"
@@ -40,6 +42,7 @@ import {
   RED_BORDER,
   RED_SOFT,
 } from "@/components/hub/tokens"
+import { RfqDrawer } from "@/components/hub/rfq-drawer"
 import { useRewards } from "@/components/hub/rewards/use-rewards"
 import { TierIndicator } from "@/components/hub/rewards/tier-indicator"
 import { RewardsTab } from "@/components/hub/rewards/rewards-tab"
@@ -143,6 +146,15 @@ export function DataHub({
   const [celebrateTier, setCelebrateTier] = useState<RewardTier | null>(null)
   const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true"
 
+  // RFQ drawer, prefilled with whichever line the rep was looking at.
+  const [rfqOpen, setRfqOpen] = useState(false)
+  const [rfqLineId, setRfqLineId] = useState<string | null>(null)
+
+  function openRfq(lineId: string | null) {
+    setRfqLineId(lineId)
+    setRfqOpen(true)
+  }
+
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -205,15 +217,9 @@ export function DataHub({
     return map
   }, [initialSpecials])
 
-  const rawActiveSpecial = selectedMfr
+  const activeSpecial: Special | null = selectedMfr
     ? specialByMfr.get(selectedMfr.org.id) ?? null
     : null
-
-  const activeSpecial = useMemo<Special | null>(() => {
-    if (!rawActiveSpecial) return null
-    if (!data) return rawActiveSpecial
-    return applyEligibleLines(rawActiveSpecial, data.lines)
-  }, [rawActiveSpecial, data])
 
   const specialDismissed = activeSpecial
     ? dismissedSpecials.has(activeSpecial.id)
@@ -249,7 +255,7 @@ export function DataHub({
   async function handleDownloadAll(line: HubLine) {
     // Sign all URLs in parallel — sequential awaits made big lines crawl.
     const results = await Promise.all(
-      line.files.map((f) => getFileSignedUrl(f.id).catch(() => null))
+      line.files.map((f) => getFileSignedUrl(f.id, "download").catch(() => null))
     )
     for (const res of results) {
       if (res && "data" in res) window.open(res.data.url, "_blank")
@@ -258,6 +264,8 @@ export function DataHub({
 
   function markAllRead() {
     setNotifications((ns) => ns.map((n) => ({ ...n, unread: false })))
+    // Persist server-side so the badge stays cleared across reloads.
+    void markAllNotificationsRead()
   }
 
   const counts: Record<TabKey, number> = {
@@ -482,6 +490,7 @@ export function DataHub({
                   <div className="ml-auto flex items-center gap-3">
                     <Button
                       size="sm"
+                      onClick={() => openRfq(activeSpecial.eligibleLineIds[0] ?? null)}
                       className="font-mono text-xs text-white hover:opacity-90"
                       style={{ backgroundColor: RED }}
                     >
@@ -553,6 +562,7 @@ export function DataHub({
                     eligibleLineIds={eligibleLineIds}
                     onOpenFile={openFile}
                     onDownloadAll={handleDownloadAll}
+                    onRequestQuote={openRfq}
                   />
                 ) : tab === "contacts" ? (
                   <ContactsPane contacts={data.contacts} />
@@ -672,6 +682,17 @@ export function DataHub({
           onClose={() => setCelebrateTier(null)}
         />
       )}
+
+      {selectedMfr && data && (
+        <RfqDrawer
+          open={rfqOpen}
+          onOpenChange={setRfqOpen}
+          manufacturerName={selectedMfr.org.name}
+          manufacturerOrgId={selectedMfr.org.id}
+          lines={data.lines}
+          initialLineId={rfqLineId}
+        />
+      )}
     </div>
   )
 }
@@ -732,6 +753,7 @@ function LinesBrowser({
   eligibleLineIds,
   onOpenFile,
   onDownloadAll,
+  onRequestQuote,
 }: {
   lines: HubLine[]
   selectedLine: HubLine | null
@@ -742,6 +764,7 @@ function LinesBrowser({
   eligibleLineIds: Set<string>
   onOpenFile: (id: string) => void
   onDownloadAll: (line: HubLine) => Promise<void>
+  onRequestQuote: (lineId: string | null) => void
 }) {
   const [downloading, setDownloading] = useState(false)
 
@@ -831,9 +854,14 @@ function LinesBrowser({
                   {selectedLine.product_count} products · {selectedLine.file_count} files
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="font-mono text-xs">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onRequestQuote(selectedLine.id)}
+                className="font-mono text-xs"
+              >
                 <UserRound className="mr-1.5 h-3.5 w-3.5" />
-                Primary contact info
+                Request quote
               </Button>
               <Button
                 size="sm"

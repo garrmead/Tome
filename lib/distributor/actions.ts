@@ -27,7 +27,8 @@ const SIGNED_URL_TTL = 60 * 5 // 5 minutes
  * If either check fails the caller gets a generic error, never a URL.
  */
 export async function getFileSignedUrl(
-  fileId: string
+  fileId: string,
+  intent: "preview" | "download" = "preview"
 ): Promise<Result<SignedFile>> {
   const supabase = await createClient()
 
@@ -39,11 +40,21 @@ export async function getFileSignedUrl(
   // (1) DB-level access check via RLS.
   const { data: file } = await supabase
     .from("files")
-    .select("filename, storage_path, file_type, file_size, updated_at")
+    .select("filename, storage_path, file_type, file_size, updated_at, owner_org_id")
     .eq("id", fileId)
     .maybeSingle()
 
   if (!file) return { error: "File not found or access denied" }
+
+  // Instrumentation chokepoint: every file open in the product flows through
+  // here, so one log_event call covers analytics, notifications, and rewards.
+  // Best-effort — a logging failure must never block the signed URL.
+  await supabase.rpc("log_event", {
+    p_manufacturer_org_id: (file as any).owner_org_id,
+    p_event_type: intent === "download" ? "file_download" : "file_preview",
+    p_subject_id: fileId,
+    p_metadata: { file_type: (file as any).file_type },
+  })
 
   // (2) Storage-level access check — signed URL creation is itself RLS-gated.
   const { data: signed, error: signErr } = await supabase.storage
