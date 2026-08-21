@@ -1,0 +1,155 @@
+* { box-sizing: border-box; }
+
+:root {
+  --bg: #0e1116;
+  --panel: #171c24;
+  --panel-2: #1e2530;
+  --border: #2a3342;
+  --text: #e6ebf2;
+  --muted: #8b96a5;
+  --red: #ff5d5d;
+  --orange: #ffab40;
+  --green: #4cd97b;
+  --blue: #58a6ff;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+h1 { margin: 0; font-size: 22px; }
+.tagline { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+.header-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+.source-status { display: flex; gap: 10px; font-size: 12px; color: var(--muted); }
+.source-status .src::before {
+  content: "●";
+  margin-right: 4px;
+}
+.source-status .ok::before { color: var(--green); }
+.source-status .down::before { color: var(--red); }
+
+.btn {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.btn:hover { border-color: var(--blue); }
+.btn.enabled { color: var(--green); cursor: default; }
+
+.mock-banner {
+  background: #3a2f13;
+  color: var(--orange);
+  padding: 8px 24px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+#map {
+  height: 380px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+#map.unavailable {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+main {
+  display: grid;
+  grid-template-columns: minmax(320px, 5fr) minmax(360px, 7fr);
+  gap: 20px;
+  padding: 20px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+.panel h2 { margin: 0 0 10px; font-size: 17px; }
+.count { color: var(--muted); font-weight: normal; font-size: 14px; }
+.hint { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.card .title-row { display: flex; align-items: baseline; gap: 8px; }
+.card .title-row a { color: var(--text); text-decoration: none; font-weight: 600; }
+.card .title-row a:hover { text-decoration: underline; }
+.card .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.badge.sev-3 { background: rgba(255, 93, 93, 0.15); color: var(--red); }
+.badge.sev-2 { background: rgba(255, 171, 64, 0.15); color: var(--orange); }
+.badge.sev-1 { background: rgba(76, 217, 123, 0.12); color: var(--green); }
+.badge.new { background: rgba(88, 166, 255, 0.15); color: var(--blue); }
+
+.tickers { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.ticker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+.ticker .sym { font-weight: 700; min-width: 62px; }
+.ticker .name { color: var(--muted); flex: 1; min-width: 0; }
+.ticker .reason { color: var(--muted); font-size: 12px; flex: 2; min-width: 0; }
+.ticker .chg { font-variant-numeric: tabular-nums; min-width: 64px; text-align: right; }
+.chg.down { color: var(--red); }
+.chg.up { color: var(--green); }
+.chg.flat { color: var(--muted); }
+
+.sig {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 20px;
+}
+.sig.strong-dip { background: rgba(255, 93, 93, 0.18); color: var(--red); }
+.sig.dip { background: rgba(255, 171, 64, 0.18); color: var(--orange); }
+
+.empty { color: var(--muted); font-size: 14px; padding: 14px 0; }
+
+footer {
+  padding: 18px 24px 26px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+.disclaimer { color: var(--orange); }

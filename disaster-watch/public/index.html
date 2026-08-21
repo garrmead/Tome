@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Disaster Watch</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>🌋 Disaster Watch</h1>
+      <p class="tagline">Real-time natural disasters &amp; market impact watchlist</p>
+    </div>
+    <div class="header-right">
+      <div id="source-status" class="source-status"></div>
+      <button id="notify-btn" class="btn">🔔 Enable notifications</button>
+    </div>
+  </header>
+
+  <div id="mock-banner" class="mock-banner" hidden>
+    Demo mode — showing bundled sample data, not live feeds.
+  </div>
+
+  <div id="map"></div>
+
+  <main>
+    <section class="panel">
+      <h2>Active disasters <span id="event-count" class="count"></span></h2>
+      <div id="events"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Market impact watchlist <span id="opp-count" class="count"></span></h2>
+      <p class="hint">
+        Securities historically pressured by each event type. Names flagged
+        <span class="sig strong-dip">dipping hard</span> or
+        <span class="sig dip">dipping</span> are already selling off — the
+        classic event-driven entry point <em>if</em> your own research agrees.
+      </p>
+      <div id="opportunities"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Data: USGS, NASA EONET, GDACS (disasters) · Stooq (delayed quotes).
+      Updates every 60 seconds.
+    </p>
+    <p class="disclaimer">
+      ⚠️ For research only — nothing here is financial advice. Disaster-driven
+      dips can keep falling; position sizing and your own due diligence are on you.
+    </p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
