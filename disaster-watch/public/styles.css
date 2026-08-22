@@ -153,3 +153,33 @@ footer {
   text-align: center;
 }
 .disclaimer { color: var(--orange); }
+
+/* --- Phone layout --- */
+@media (max-width: 600px) {
+  header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+  .header-right { width: 100%; justify-content: space-between; }
+  h1 { font-size: 19px; }
+  .mock-banner { padding: 8px 16px; }
+
+  #map { height: 240px; }
+
+  main { padding: 14px 16px; gap: 16px; }
+
+  .btn { padding: 10px 14px; }           /* comfortable tap target */
+  .card { padding: 11px 12px; }
+  .card .title-row { flex-wrap: wrap; row-gap: 4px; }
+
+  .ticker { flex-wrap: wrap; row-gap: 2px; padding: 8px 10px; }
+  .ticker .sym { min-width: 52px; }
+  .ticker .name { flex: 1 1 auto; }
+  .ticker .chg { min-width: 0; margin-left: auto; }
+  .ticker .reason { flex: 1 1 100%; order: 10; }  /* rationale on its own line */
+
+  footer { padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); }
+}

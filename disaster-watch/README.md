@@ -22,6 +22,34 @@ MOCK=1 node server.mjs
 
 `PORT=3000 node server.mjs` overrides the port. Requires Node 18+.
 
+## Use it on your phone
+
+The app is a mobile-friendly PWA. Three ways to get it on a phone, in
+increasing order of capability:
+
+1. **Same Wi-Fi (quickest).** Start the server on your computer — it prints a
+   `Network: http://192.168.x.x:4310` address. Open that URL in your phone's
+   browser. The full dashboard (map, feed, watchlist, auto-refresh) works.
+   You can "Add to Home Screen" for an app icon, but note that browsers only
+   allow service workers and push notifications on HTTPS origins, so over
+   plain LAN HTTP those two features stay off.
+
+2. **HTTPS tunnel (full features, still self-hosted).** Point a tunnel at the
+   server — e.g. `cloudflared tunnel --url http://localhost:4310` (free, no
+   account) or Tailscale Serve — and open the generated `https://` URL on your
+   phone. HTTPS unlocks install-to-home-screen as a real app plus
+   notifications when new severe events appear.
+
+3. **Host it (works anywhere, always on).** Deploy the folder to any Node
+   host or free container tier (Render, Fly.io, Railway…) — a `Dockerfile`
+   is included, or just run `node server.mjs`. Your phone then gets the full
+   PWA experience from anywhere, and the server keeps polling even when your
+   computer is off.
+
+On iPhone, notifications additionally require adding the app to the Home
+Screen first (Share → Add to Home Screen), then enabling notifications from
+inside the app — that's an iOS platform rule for web apps.
+
 ## What it does
 
 - **Tracks disasters in real time** from three free, key-less public feeds,

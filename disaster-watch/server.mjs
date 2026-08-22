@@ -4,6 +4,7 @@
 //   PORT=3000 to override the default port 4310.
 
 import http from "node:http";
+import { networkInterfaces } from "node:os";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,6 +79,14 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Disaster Watch running at http://localhost:${PORT}${MOCK ? "  (MOCK mode)" : ""}`);
+// 0.0.0.0 so phones and tablets on the same network can connect.
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Disaster Watch${MOCK ? " (MOCK mode)" : ""}`);
+  console.log(`  Local:   http://localhost:${PORT}`);
+  const lan = Object.values(networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === "IPv4" && !i.internal)
+    .map((i) => i.address);
+  for (const addr of lan) console.log(`  Network: http://${addr}:${PORT}  <- open this on your phone (same Wi-Fi)`);
+  if (!lan.length) console.log("  (no LAN address found — phone access needs a network interface)");
 });

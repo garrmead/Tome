@@ -92,15 +92,28 @@ function notifyNewEvents(events) {
   // Don't notification-blast on the very first visit.
   if (firstLoad) { firstLoad = false; return fresh; }
 
-  if (Notification?.permission === "granted") {
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     for (const e of fresh.filter((e) => e.severity >= 2).slice(0, 5)) {
-      new Notification(`${TYPE_ICONS[e.type] || "⚠️"} ${e.title}`, {
+      showNotification(`${TYPE_ICONS[e.type] || "⚠️"} ${e.title}`, {
         body: `${e.type} · ${SEV_LABEL[e.severity]} · via ${e.source}`,
         tag: e.id,
+        icon: "/icon-192.png",
       });
     }
   }
   return fresh;
+}
+
+// Mobile Chrome forbids `new Notification()` from a page — notifications must
+// go through the service worker registration there.
+async function showNotification(title, opts) {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg?.showNotification) return reg.showNotification(title, opts);
+    new Notification(title, opts);
+  } catch (err) {
+    console.warn("notification failed", err);
+  }
 }
 
 function renderSources(sources) {
@@ -209,6 +222,14 @@ if ("Notification" in window && Notification.permission === "granted") {
   btn.classList.add("enabled");
 }
 
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch((err) => console.warn("sw failed", err));
+}
+
 initMap();
 refresh();
 setInterval(refresh, POLL_MS);
+// Refresh immediately when the app is foregrounded on a phone.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refresh();
+});
